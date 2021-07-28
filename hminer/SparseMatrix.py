@@ -8,9 +8,9 @@ import time
 
 
 COO_MATRIX_SCHEMA = StructType([
-	StructField('row', LongType()),
-	StructField('col', LongType()),
-	StructField('val', DoubleType())
+	StructField('src', LongType()),
+	StructField('dst', LongType()),
+	StructField('numberOfPaths', DoubleType())
 ])
 
 class SparseMatrix:
@@ -42,7 +42,7 @@ class SparseMatrix:
 		self._matrix.coalesce(1).write.csv(filename, sep='\t')
 	
 	def sort(self):
-		self._matrix = self._matrix.sort(col("row"))
+		self._matrix = self._matrix.sort(col("src"))
 
 	def filter(self, condition):
 		self._matrix = self._matrix.filter(condition)
@@ -57,13 +57,13 @@ class SparseMatrix:
 		B.get_df().createOrReplaceTempView("B")
 		df = spark.sql("""
 		SELECT
-			A.row row,
-			B.col col,
-			SUM(A.val * B.val) val
+			A.src src,
+			B.dst dst,
+			SUM(A.numberOfPaths * B.numberOfPaths) numberOfPaths
 		FROM
 			A
-		JOIN B ON A.col = B.row
-		GROUP BY A.row, B.col
+		JOIN B ON A.dst = B.src
+		GROUP BY A.src, B.dst
 		""")
 
 		return SparseMatrix(self.get_rows(), B.get_cols(), df)

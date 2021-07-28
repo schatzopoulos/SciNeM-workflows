@@ -18,6 +18,7 @@ spark-submit \
  --num-executors 8 \
  --packages graphframes:graphframes:0.8.0-spark3.0-s_2.12 \
  --py-files=../hminer/sources.zip ../hminer/Hminer.py "$config"
+
 ret_val=$?
 if [ $ret_val -ne 0 ]; then
    	echo "Error: HIN Transformation"
@@ -39,19 +40,6 @@ fi
 
 if [[ " ${analyses[@]} " =~ "Similarity Join" ]]; then
 
-#	# find hin folder from json config 
-#	join_hin=`cat "$config" | jq -r .join_hin_out`
-#	local_hin=`cat "$config" | jq -r .local_out_dir`/LOCAL_HIN
-	
-#	# copy HIN file from hdfs
-#	hadoop dfs -copyToLocal "$join_hin/part-"* "$local_hin"
-	
-#	if ! java -Xmx40G -jar ../similarity/EntitySimilarity-1.0-SNAPSHOT.jar -c "$config" "Similarity Join" "$local_hin"; then
-#	        echo "Error: Similarity Join"
-#	        clean_exit 2
-#	fi
-#	rm "$local_hin"
-	
 	if ! python3 ../similarity/add_names_sim.py -c "$config" "Similarity Join"; then 
          echo "Error: Finding node names in Similarity Join output"
          clean_exit 2
@@ -60,46 +48,17 @@ fi
 
 if [[ " ${analyses[@]} " =~ "Similarity Search" ]]; then
 
-#	# find hin folder from json config 
-#	join_hin=`cat "$config" | jq -r .join_hin_out`
-#	local_hin=`cat "$config" | jq -r .local_out_dir`/LOCAL_HIN
-	
-#	# copy HIN file from hdfs
-#	hadoop dfs -copyToLocal "$join_hin/part-"* "$local_hin"
-	
-#	if ! java -Xmx40G -jar ../similarity/EntitySimilarity-1.0-SNAPSHOT.jar -c "$config" "Similarity Search" "$local_hin"; then
-#	        echo "Error: Similarity Search"
-#	        clean_exit 2
-#	fi
-	
-#	rm "$local_hin"
-	
 	if ! python3 ../similarity/add_names_sim.py -c "$config" "Similarity Search"; then 
          echo "Error: Finding node names in Similarity Search output"
          clean_exit 2
 	fi
 fi
-	
+
 # perform Community Detection
 if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 
-	# find hin folder from json config 
-# 	hin=`cat "$config" | jq -r .hin_out`
 	communities_out=`cat "$config" | jq -r .communities_out`
 	final_communities_out=`cat "$config" | jq -r .final_communities_out`
-# 	local_hin=`cat "$config" | jq -r .local_out_dir`/LOCAL_HIN
-	
-# 	current_dir=`pwd`
-
-# 	# call community detection algorithm
-# 	cd ../louvain/
-
-# 	if ! bash ./bin/louvain -m "local[8]" -p 8 -i "$hin/part-"* -o "$communities_out" 2>/dev/null; then
-# 		echo "Error: Community Detection"
-# 		clean_exit 3
-# 	fi
-		
-# 	cd $current_dir
 
 	if ! python3 ../add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then 
          echo "Error: Finding node names in Community Detection output"
