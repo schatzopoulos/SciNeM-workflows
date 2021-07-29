@@ -2,11 +2,11 @@ import numpy
 from pyspark.sql.functions import concat, col, lit, struct, sum, collect_list, udf
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, ArrayType, LongType
 from functools import reduce
-import utils
-import Pagerank
+import SciNeMCore.utils as utils
+import SciNeMCore.Pagerank as Pagerank
 import time
-from SparseMatrix import SparseMatrix
-from DynamicOptimizer import DynamicOptimizer
+from SciNeMCore.SparseMatrix import SparseMatrix
+from SciNeMCore.DynamicOptimizer import DynamicOptimizer
 from array import array
 import operator
 from graphframes import GraphFrame
@@ -136,7 +136,7 @@ class Graph:
 
 		return temp[0]
 
-	def pagerank(self, graph, alpha, tol, outfile):
+	def pagerank(self, graph, alpha, tol):
 
 		# aggregate dest nodes based on source and sum number of outgoing edges
 		grouped_df = graph.get_df().groupby("src").agg(struct(collect_list("dst").alias("cols"), collect_list("numberOfPaths").alias("vals"), sum("numberOfPaths").alias("edges_num")))
@@ -144,9 +144,9 @@ class Graph:
 		# transform to rdd that is needed for PR
 		links = grouped_df.rdd.map(tuple).cache()
 
-		return Pagerank.execute(links, alpha, tol, outfile)
+		return Pagerank.execute(links, alpha, tol)
 
-	def lpa(self, graph, iter, outfile):
+	def lpa(self, graph, iter):
 		print("Community Detection\t1\tInitializing Algorithm", flush=True)
 		edges = graph.get_df()
 		vertices = edges.select('src').union(edges.select('dst')).distinct().withColumnRenamed('src', 'id')
@@ -154,7 +154,8 @@ class Graph:
 		print("Community Detection\t2\tExecuting Label Propagation Algorithm", flush=True)
 		graph = GraphFrame(vertices, edges)
 		result = graph.labelPropagation(maxIter=iter)
-		result.orderBy('label', ascending=True).withColumnRenamed('label', 'Community').coalesce(1).write.csv(outfile, sep='\t')	
+		return result.orderBy('label', ascending=True).withColumnRenamed('label', 'Community')
+		# .coalesce(1).write.csv(outfile, sep='\t')	
 
 	def similarities(self, graph, config):
 

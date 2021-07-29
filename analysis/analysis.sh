@@ -17,7 +17,7 @@ spark-submit \
  --executor-memory 25G \
  --num-executors 8 \
  --packages graphframes:graphframes:0.8.0-spark3.0-s_2.12 \
- --py-files=../hminer/sources.zip ../hminer/Hminer.py "$config"
+ --py-files=../SciNeMCore/sources.zip ../main.py "$config"
 
 ret_val=$?
 if [ $ret_val -ne 0 ]; then

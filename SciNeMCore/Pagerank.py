@@ -22,7 +22,7 @@ import time
 from math import ceil
 from operator import add
 from pyspark.sql import SparkSession
-import utils
+import SciNeMCore.utils as utils
 
 def compute_contribs(outgoing_edges, rank):
     """Calculates contributions based on the number of edges between the two nodes."""
@@ -33,7 +33,7 @@ def compute_contribs(outgoing_edges, rank):
 def pagerank_score(rank, alpha, initial_pagerank):
     return alpha * rank  + (1 - alpha) * initial_pagerank
 
-def execute(links, alpha, convergence_error, outfile):
+def execute(links, alpha, convergence_error):
     print("Ranking\t1\tInitializing Ranking Algorithm", flush=True)
 
     # sum all weights
@@ -71,8 +71,8 @@ def execute(links, alpha, convergence_error, outfile):
         max_error = ranks.join(prev_ranks).mapValues(lambda rank: abs(rank[0] - rank[1])).values().max()
         print("Ranking\t2\tExecuting Ranking Algorithm (iteration %s)" % (iteration+1), flush=True)
         iteration += 1
-    
-    print("Ranking\t3\tSorting Ranking List", flush=True)
-    ranks.sortBy(lambda x: - x[1]).coalesce(1).map(utils.toCSVLine).saveAsTextFile(outfile)
 
-    return ranks
+    print("Ranking\t3\tSorting Ranking List", flush=True)
+    # ranks.sortBy(lambda x: - x[1]).coalesce(1).map(utils.toCSVLine).saveAsTextFile(outfile)
+
+    return ranks.sortBy(lambda x: - x[1])
