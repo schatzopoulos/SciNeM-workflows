@@ -50,6 +50,44 @@ id	name    surname
 ```
 
 ## Usage
-All analyses can be performed using the [analysis.sh](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/analysis.sh) bash script that requires a configuration file in json format. The parameters of this configuration files are described below: [TODO]
+All analyses can be performed using the [analysis.sh](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/analysis.sh) bash script that requires a configuration file in json format. The parameters of this configuration files are described below:
+
+| Parameter Name  | Description |
+| ------------- | ------------- |
+| indir |	hdfs path of the folder containing node attribute files |
+| irdir |	hdfs path of the folder containing relation files |
+| indir_local |	local path of the folder containing node attribute files |
+| hdfs_out_dir | hdfs path of base folder to save the results after analysis |
+| local_out_dir |	local pat of the base folde to save the final results  |
+| hin_out |	hdfs path to save the homogeneous network after HIN transformation |
+| join_hin_out | hdfs path to save the homogeneous network after HIN transformation for similarity analyses	|
+| ranking_out |	hdfs path to save ranking output |
+| communities_out |	hdfs path to save community detection output |
+| communities_details |	|
+| sim_search_out |	hdfs path to save similarity search output|
+| sim_join_out |	hdfs path to save similarity join output |
+| final_ranking_out |	local path to save the final ranking output (containing the `select_field` column apart from the entity id)  |
+| final_communities_out |	local path to save the final community detection output (containing the `select_field` column apart from the entity id)  |
+| final_sim_search_out | 	local path to save the final similarity search output (containing the `select_field` column apart from the entity id)  |	
+| final_sim_join_out |	local path to save the final similarity join output (containing the `select_field` column apart from the entity id)  |
+| final_ranking_community_out |	local path to save the final ranking output combined with community detection results |
+| final_community_ranking_out |	local path to save the final community detection output combined with ranking results |
+| dataset |	the dataset name to be used |
+| primary_entity | the name of the primary entity in the metapath (i.e. first and last entity)	|
+| select_field | the field to append in the final results of each analysis (e.g. the `name` of column of entity `Author`)|
+| pr_alpha | the alpha parameter of the Pagerank algorithm |
+| pr_tol |	the tolerance parameter of the Pagerank algorithm |
+| edgesThreshold |	threshold on the number of occurences of each edge on the transformed homogeneous network (edges with less frequency are not considered in the analyses)|
+| target_id |	the target entity id of the similarity search analysis |
+| searchK |	the `k` most similar entities to be retrieved in similarity analyses |
+| t |	number of hash tables to be used for LSH in similarity analyses |
+| sim_min_values |	threshold on the number of occurences of each edge to be considerd for similarity analyses (edges with less frequency are not considered in similarity analyses)|
+| inputCSVDelimiter |	the delimiter of input files |
+| community_algorithm |	the community detection algorithm to be used; one of `Vanilla LPA`, `LPA`, `OLPA`, `PIC`, `HPIC`|
+| maxSteps | the maximum number of iterations to be performed by community detection algorithms |
+| threshold |	a double number used in each iteration of Pregel in OLPA to determine for each vertex which of the incoming communities from its neighbors will be included in the community affiliations of a vertex |
+| stopCriterion |	the number of times that a vertex can have the same community affiliation(s) before it stops been included in the remaining supersteps of the LPA(OLPA). |
+| nOfCommunities |	the number of communities given to perform the PIC algorithm or the initial number of communities given to perform the HPIC algorithm. |
+| ratio |	 a double number which reduces the number of communities on each level of HPIC algorithm |
 
 A sample configuration file can be found [here](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/sample_config.json).
