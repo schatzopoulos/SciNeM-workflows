@@ -59,6 +59,8 @@ All analyses can be performed using the [analysis.sh](https://github.com/schatzo
 | indir_local |	local path of the folder containing node attribute files |
 | hdfs_out_dir | hdfs path of base folder to save the results after analysis |
 | local_out_dir |	local pat of the base folde to save the final results  |
+| analyses | an array with the analyses to be performed; currently supported analyses types are `Ranking`, `Community Detection`, `Similarity Join` and `Similarity Search` |
+| query | a json object containing keys for `metapath` to be used, `joinpath` (used in similarity join anaylysis) and `constraints` to be applied on node types |
 | hin_out |	hdfs path to save the homogeneous network after HIN transformation |
 | join_hin_out | hdfs path to save the homogeneous network after HIN transformation for similarity analyses	|
 | ranking_out |	hdfs path to save ranking output |
