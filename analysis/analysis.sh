@@ -79,7 +79,7 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 			--driver-memory=50G \
 			--executor-memory=20G \
 			--num-executors 8 \
-			../community/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar "$config"
+			../community/target/scala-2.12/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar "$config"
 		ret_val=$?
 		if [ $ret_val -ne 0 ]; then
 		        echo "Error: Executing Community Detection"
