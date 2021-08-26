@@ -49,8 +49,18 @@ id	name    surname
 ...
 ```
 
-## Usage
-All analyses can be performed using the [analysis.sh](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/analysis.sh) bash script that requires a configuration file in json format. The parameters of this configuration files are described below:
+## Confgiguration & Usage
+It is vital that you provide the appropriate values in the [config file](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/config.properties). 
+
+In order to perform an analysis, you need to navigate inside the root directory of the cloned repository and execute the following [analysis.sh](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/analysis.sh) bash script with the appropriate configuration file as a parameter: 
+
+```
+/bin/bash ./analysis/analysis.sh <local_absoulte_path>/config.json
+```
+
+This configuration file is in JSON format and includes all apporopriate paramreters; 
+a sample can be found [here](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/sample_config.json).
+Its main parameters are described below:
 
 | Parameter Name  | Description |
 | ------------- | ------------- |
@@ -92,4 +102,4 @@ All analyses can be performed using the [analysis.sh](https://github.com/schatzo
 | nOfCommunities |	the number of communities given to perform the PIC algorithm or the initial number of communities given to perform the HPIC algorithm. |
 | ratio |	 a double number which reduces the number of communities on each level of HPIC algorithm |
 
-A sample configuration file can be found [here](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/sample_config.json).
+
