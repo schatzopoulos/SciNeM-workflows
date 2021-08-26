@@ -1,16 +1,30 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 config="$1"
+CONFIG_FILE="../config.properties"
 
 function clean_exit() {
 # 	hadoop dfs -rm -r `cat "$config" | jq -r .hdfs_out_dir` > /dev/null
 	exit $1
 }
 
+#read the properties file and returns the value based on the key
+function getPropVal {
+    value= grep "${1}" ./$CONFIG_FILE | cut -d'=' -f2
+	if [[ -z "$value" ]]; then
+	   echo "Key not found"
+	   exit 1
+	fi
+	echo $value
+}
+
+spark_master=($(getPropVal 'config.spark.master'))
+echo "${spark_master}"
+
 # performs HIN transformation and ranking (if needed)
 # spark-submit --master local[*] --conf spark.sql.shuffle.partitions=32 --driver-memory=40G --packages graphframes:graphframes:0.8.0-spark3.0-s_2.12 --py-files=../hminer/sources.zip ../hminer/Hminer.py "$config"
 spark-submit \
- --master spark://62.217.82.255:7077 \
+ --master spark://"${spark_master}" \
  --conf spark.sql.shuffle.partitions=120 \
  --executor-cores 8 \
  --total-executor-cores 60 \
@@ -72,7 +86,7 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 	# execute community detection algorithms in scala
 	else
             spark-submit \
-	            --master spark://62.217.82.255:7077 \
+	            --master spark://"${spark_master}" \
         	    --conf spark.sql.shuffle.partitions=128 \
 	            --executor-cores 4 \
 		    --driver-memory=40G \
