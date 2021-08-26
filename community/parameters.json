@@ -1,0 +1,11 @@
+{
+	"hin_out": "resources/bigtest/outputHIN",
+	"inputCSVDelimiter": "\t",
+	"community_algorithm": "HPIC",
+	"communities_out": "resources/bigtest/outputLabels",
+	"stopCriterion": 20,
+	"nOfCommunities": 20,
+	"threshold": 0.5,
+	"ratio": 0.2,
+	"maxSteps": 40
+}

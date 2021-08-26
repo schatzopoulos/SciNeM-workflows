@@ -25,7 +25,7 @@ class SparseMatrix:
 
 	def get_sparsity(self):
 		return self._matrix.count() / (self._rows * self._cols)
-	
+
 	def get_df(self):
 		return self._matrix
 
@@ -37,10 +37,10 @@ class SparseMatrix:
 
 	def non_zero(self):
 		return self._matrix.count()
-	
+
 	def write(self, filename):
-		self._matrix.coalesce(1).write.csv(filename, sep='\t')
-	
+		self._matrix.coalesce(1).write.option("header", "true").csv(filename, sep='\t')
+
 	def sort(self):
 		self._matrix = self._matrix.sort(col("src"))
 

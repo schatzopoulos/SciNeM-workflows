@@ -32,7 +32,7 @@ if [[ " ${analyses[@]} " =~ "Ranking" ]]; then
 	ranking_out=`cat "$config" | jq -r .ranking_out`
 	ranking_final=`cat "$config" | jq -r .final_ranking_out`
 
-	if ! python3 ../add_names.py -c "$config" "Ranking" "$ranking_out" "$ranking_final"; then 
+	if ! python3 ../utils/add_names.py -c "$config" "Ranking" "$ranking_out" "$ranking_final"; then
          echo "Error: Finding node names in Ranking output"
          clean_exit 2
 	fi
@@ -40,7 +40,7 @@ fi
 
 if [[ " ${analyses[@]} " =~ "Similarity Join" ]]; then
 
-	if ! python3 ../similarity/add_names_sim.py -c "$config" "Similarity Join"; then 
+	if ! python3 ../utils/add_names_sim.py -c "$config" "Similarity Join"; then
          echo "Error: Finding node names in Similarity Join output"
          clean_exit 2
 	fi
@@ -48,11 +48,13 @@ fi
 
 if [[ " ${analyses[@]} " =~ "Similarity Search" ]]; then
 
-	if ! python3 ../similarity/add_names_sim.py -c "$config" "Similarity Search"; then 
+	if ! python3 ../utils/add_names_sim.py -c "$config" "Similarity Search"; then
          echo "Error: Finding node names in Similarity Search output"
          clean_exit 2
 	fi
 fi
+
+community_algorithm=`cat "$config" | jq -r .community_algorithm`
 
 # perform Community Detection
 if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
@@ -60,18 +62,43 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 	communities_out=`cat "$config" | jq -r .communities_out`
 	final_communities_out=`cat "$config" | jq -r .final_communities_out`
 
-	if ! python3 ../add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then 
-         echo "Error: Finding node names in Community Detection output"
-         clean_exit 2
+	if [[ "$community_algorithm" == "Vanilla LPA" ]]; then
+
+		if ! python3 ../utils/add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then
+        		echo "Error: Finding node names in Community Detection output"
+		        clean_exit 2
+		fi
+
+	# execute community detection algorithms in scala
+	else
+		spark-submit \
+			--master spark://62.217.82.255:7077 \
+			--conf spark.sql.shuffle.partitions=120 \
+			--executor-cores 8 \
+			--total-executor-cores 60 \
+			--driver-memory=50G \
+			--executor-memory=20G \
+			--num-executors 8 \
+			../community/target/scala-2.12/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar "$config"
+		ret_val=$?
+		if [ $ret_val -ne 0 ]; then
+		        echo "Error: Executing Community Detection"
+		        clean_exit $ret_val
+		fi
 	fi
 fi
 
 # both ranking & community detection have been executed, merge their results
 if [[ " ${analyses[@]} " =~ "Ranking - Community Detection" ]]; then
 
-	if ! python3 ../merge_results.py -c "$config"; then 
-         echo "Error: Combining Ranking with Community Detection"
-         clean_exit 2
+	if [[ "$community_algorithm" == "Vanilla LPA" ]]; then
+		if ! python3 ../utils/merge_results.py -c "$config"; then
+		        echo "Error: Combining Ranking with Community Detection"
+		        clean_exit 2
+		fi
+	else
+		echo "TODO: merge results for scala based community detection"
+		clean_exit 2
 	fi
 fi
 

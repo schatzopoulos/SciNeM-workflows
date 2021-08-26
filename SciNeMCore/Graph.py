@@ -21,8 +21,8 @@ class Graph:
 	_dimensions = []
 	_transition_matrices = []
 
-	def build(self, spark, metapath, nodes_dir, relations_dir, constraints, printLogs):
-		if printLogs == True:
+	def transform(self, spark, metapath, nodes_dir, relations_dir, constraints, verbose):
+		if verbose == True:
 			print("HIN Transformation\t1\tLoading HIN Nodes", flush=True)
 
 		# start_time = time.time()
@@ -30,7 +30,7 @@ class Graph:
 
 		# vertices.show(n=5)
 		# print("--- read vertices %s %s---" % (time.time() - start_time, vertices.rdd.getNumPartitions()))
-		if printLogs == True:
+		if verbose == True:
 			print("HIN Transformation\t2\tLoading HIN Edges", flush=True)
 
 		# start_time = time.time()
@@ -38,7 +38,7 @@ class Graph:
 		# edges.show(n=5)
 		# print("--- read edges  %s %s ---" % (time.time() - start_time, edges.rdd.getNumPartitions()))
 
-		# self._graph = GraphFrame(vertices, edges)
+		return self.multiply(spark, verbose)
 
 	def build_constraint_matrices(self, spark, metapath, nodes_dir, constraints):
 
@@ -94,8 +94,8 @@ class Graph:
 
 		return transition_matrices
 
-	def transform(self, spark, printLogs):
-		if printLogs == True:
+	def multiply(self, spark, verbose):
+		if verbose == True:
 			print("HIN Transformation\t3\tPreparing Network", flush=True)
 
 		if len(self._transition_matrices) == 1:
