@@ -34,15 +34,14 @@ with open(config_file) as fd:
 		metapath = config["query"]["metapath"]
 		joinpath = config["query"]["joinpath"]
 		constraints = config["query"]["constraints"]
-		community_detection_iter = int(config["community_detection_iter"])
-printLogs = True
+		community_detection_iter = int(config["maxSteps"])
+		community_detection_algorithm = config["community_algorithm"]
+verbose = True
 
 if "Ranking" in analyses or "Community Detection" in analyses:
   # In ranking and community detection a homegeneous graph is needed
   graph = Graph()
-  print(spark, metapath, nodes_dir, relations_dir, constraints, printLogs)
-  graph.build(spark, metapath, nodes_dir, relations_dir, constraints, printLogs)
-  res_hin = graph.transform(spark, printLogs)
+  res_hin = graph.transform(spark, metapath, nodes_dir, relations_dir, constraints, verbose)
 
   # apply filter in case of ranking and community detection
   res_hin.filter(col("numberOfPaths") >= edgesThreshold)
@@ -51,33 +50,27 @@ if "Ranking" in analyses or "Community Detection" in analyses:
   if res_hin.non_zero() == 0:
     sys.exit(100)
 
+  # write output hin to hdfs
+  res_hin.filter(col("src") != col("dst"))
+  res_hin.sort()
+  res_hin.write(hin_out)
+
   if "Ranking" in analyses:
-    print(res_hin, alpha, tol, ranking_out)
     ranks = graph.pagerank(res_hin, alpha, tol)
     ranks.coalesce(1).map(utils.toCSVLine).saveAsTextFile(ranking_out)
 
 
-  if "Community Detection" in analyses:
-    print(res_hin, community_detection_iter, communities_out)
+  if "Community Detection" in analyses and community_detection_algorithm == "Vanilla LPA":
     communities = graph.lpa(res_hin, community_detection_iter)
     communities.coalesce(1).write.csv(communities_out, sep='\t')
 
-  # write output hin to hdfs
-  res_hin.filter(col("src") != col("dst"))
-  res_hin.sort()
-  print(hin_out)
-  res_hin.write(hin_out)
-
-  printLogs = False
+  verbose = False
 
 if "Similarity Join" in analyses or "Similarity Search" in analyses:
   graph = Graph()
-  graph.build(spark, joinpath, nodes_dir, relations_dir, constraints, printLogs)
+  res_hin = graph.transform(spark, joinpath, nodes_dir, relations_dir, constraints, verbose)
 
   # write output hin to hdfs
   # 	res_hin.write(join_hin_out)
-	
-  res_hin = graph.transform(spark, printLogs)
-  
+
   graph.similarities(res_hin, config)
-  

@@ -1,0 +1,9 @@
+{
+	"hin_out": "resources/test/outputHIN",
+	"inputCSVDelimiter": "\t",
+	"community_algorithm": "LPA",
+	"communities_out": "resources/test/outputLabels",
+	"stopCriterion": 10,
+	"threshold": 0,
+	"maxSteps": 100
+}
