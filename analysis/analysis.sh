@@ -71,15 +71,15 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 
 	# execute community detection algorithms in scala
 	else
-		spark-submit \
-			--master spark://62.217.82.255:7077 \
-			--conf spark.sql.shuffle.partitions=120 \
-			--executor-cores 8 \
-			--total-executor-cores 60 \
-			--driver-memory=50G \
-			--executor-memory=20G \
-			--num-executors 8 \
-			../community/target/scala-2.12/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar "$config"
+            spark-submit \
+	            --master spark://62.217.82.255:7077 \
+        	    --conf spark.sql.shuffle.partitions=128 \
+	            --executor-cores 4 \
+		    --driver-memory=40G \
+		    --executor-memory=16G \
+		    --num-executors 13 \
+		    ../community/target/scala-2.12/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar "$config"
+
 		ret_val=$?
 		if [ $ret_val -ne 0 ]; then
 		        echo "Error: Executing Community Detection"
