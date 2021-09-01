@@ -82,7 +82,7 @@ class Graph:
 				StructField("src", IntegerType(), False),
 				StructField("dst", IntegerType(), False)])
 
-			relations = spark.read.csv(relations_dir + relation + '.csv', sep='\t', header=False, schema=schema)
+			relations = spark.read.csv(relations_dir + relation + '.csv', sep='\t', header=True, schema=schema)
 
 			if relation[0] in constraint_ids:
 				relations = constraint_ids[relation[0]].join(relations, constraint_ids[relation[0]].id == relations.src).select(relations['*'])
