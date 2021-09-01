@@ -69,7 +69,7 @@ Its main parameters are described below:
 | indir_local |	local path of the folder containing node attribute files |
 | hdfs_out_dir | hdfs path of base folder to save the results after analysis |
 | local_out_dir |	local pat of the base folde to save the final results  |
-| analyses | an array with the analyses to be performed; currently supported analyses types are `Ranking`, `Community Detection`, `Similarity Join` and `Similarity Search` |
+| analyses | an array with the analyses to be performed; currently supported analyses types are `Ranking`, `Community Detection`, `Transformation`, `Path Searching`, `Similarity Join` and `Similarity Search` |
 | query | a json object containing keys for `metapath` to be used, `joinpath` (used in similarity join anaylysis) and `constraints` to be applied on node types |
 | hin_out |	hdfs path to save the homogeneous network after HIN transformation |
 | join_hin_out | hdfs path to save the homogeneous network after HIN transformation for similarity analyses	|
@@ -78,6 +78,7 @@ Its main parameters are described below:
 | communities_details |	|
 | sim_search_out |	hdfs path to save similarity search output|
 | sim_join_out |	hdfs path to save similarity join output |
+| path_searching_out | hdfs path to save the output of path searching |
 | final_ranking_out |	local path to save the final ranking output (containing the `select_field` column apart from the entity id)  |
 | final_communities_out |	local path to save the final community detection output (containing the `select_field` column apart from the entity id)  |
 | final_sim_search_out | 	local path to save the final similarity search output (containing the `select_field` column apart from the entity id)  |	
@@ -96,10 +97,12 @@ Its main parameters are described below:
 | sim_min_values |	threshold on the number of occurences of each edge to be considerd for similarity analyses (edges with less frequency are not considered in similarity analyses)|
 | inputCSVDelimiter |	the delimiter of input files |
 | community_algorithm |	the community detection algorithm to be used; one of `Vanilla LPA`, `LPA`, `OLPA`, `PIC`, `HPIC`|
+| transformation_algorithm | the algorithm to be used for HIN transformation; one of `MatrixMutl` or `Pregel` |
 | maxSteps | the maximum number of iterations to be performed by community detection algorithms |
 | threshold |	a double number used in each iteration of Pregel in OLPA to determine for each vertex which of the incoming communities from its neighbors will be included in the community affiliations of a vertex |
 | stopCriterion |	the number of times that a vertex can have the same community affiliation(s) before it stops been included in the remaining supersteps of the LPA(OLPA). |
 | nOfCommunities |	the number of communities given to perform the PIC algorithm or the initial number of communities given to perform the HPIC algorithm. |
 | ratio |	 a double number which reduces the number of communities on each level of HPIC algorithm |
-
+| path_searching_pairs | a file in the hdfs that encodes needed pairs for path searching |
+| path_searching_length | the length of the paths to be retrieved |
 
