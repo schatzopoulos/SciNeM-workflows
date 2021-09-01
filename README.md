@@ -41,6 +41,7 @@ id	name    surname
 * **File containing relations.** These are tab-separated files needed to construct the relations among nodes. These files contain two columns, the source and target identidiers respectively and should be sorted based on the first column and named with the extension `.csv`. They do not contain a header and they should be named according to the source and target node types. For example, the file with the relations between node types `Author` and `Paper` should be named `AP.csv`. An example of file containing node relations is the following: 
 
 ```
+src dst
 0	1
 0	2
 0	3
