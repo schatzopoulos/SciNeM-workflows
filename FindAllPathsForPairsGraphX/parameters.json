@@ -1,0 +1,8 @@
+{
+	"nodes_dir": "resources/test/nodes",
+	"relations_dir": "resources/test/relations",
+	"path_searching_pairs": "resources/test/node_pairs.csv",
+	"inputCSVDelimiter": "\t",
+	"path_searching_out": "resources/findAllPaths_out",
+	"path_searching_length": 5
+}

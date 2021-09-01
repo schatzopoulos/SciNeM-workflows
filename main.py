@@ -36,9 +36,11 @@ with open(config_file) as fd:
 		constraints = config["query"]["constraints"]
 		community_detection_iter = int(config["maxSteps"])
 		community_detection_algorithm = config["community_algorithm"]
+		transformation_algorithm = config["transformation_algorithm"] if ("transformation_algorithm" in config) else "MatrixMult"
 verbose = True
 
-if "Ranking" in analyses or "Community Detection" in analyses:
+if ("Ranking" in analyses or "Community Detection" in analyses) or ("Transformation" in analyses and transformation_algorithm == "MatrixMult"):
+
   # In ranking and community detection a homegeneous graph is needed
   graph = Graph()
   res_hin = graph.transform(spark, metapath, nodes_dir, relations_dir, constraints, verbose)

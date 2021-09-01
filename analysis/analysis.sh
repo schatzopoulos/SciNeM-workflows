@@ -34,12 +34,39 @@ spark-submit \
  --py-files=../SciNeMCore/sources.zip ../main.py "$config"
 
 ret_val=$?
+
 if [ $ret_val -ne 0 ]; then
    	echo "Error: HIN Transformation"
    	clean_exit $ret_val
 fi
 
 analyses=`cat "$config" | jq -r .analyses`
+
+
+if [[ " ${analyses[@]} " =~ "Transformation" ]]; then
+
+	transformation_algorithm=`cat "$config" | jq -r .transformation_algorithm`
+
+	# performs transformation using the Pregel API
+	if [[ "${transformation_algorithm}" == "Pregel" ]]; then
+          	spark-submit \
+           	--master spark://"${spark_master}" \
+            	--conf spark.sql.shuffle.partitions=500 \
+		--conf spark.driver.maxResultSize=0 \
+            	--executor-cores 6 \
+	    	--driver-memory=50G \
+	    	--executor-memory=25G \
+	    	--num-executors 6 \
+            	../HINGraphX/target/scala-2.12/HINGraphX-assembly-3.0.1-1.3.4.jar "$config"
+
+		ret_val=$?
+		if [ $ret_val -ne 0 ]; then
+		        echo "Error: HIN Transformation with Pregel"
+		        clean_exit $ret_val
+		fi
+
+	fi
+fi
 
 # format ranking ouput
 if [[ " ${analyses[@]} " =~ "Ranking" ]]; then
@@ -100,6 +127,24 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 		        clean_exit $ret_val
 		fi
 	fi
+fi
+
+if [[ " ${analyses[@]} " =~ "Path Searching" ]]; then
+ 	spark-submit \
+        	--master spark://"${spark_master}" \
+                --conf spark.sql.shuffle.partitions=128 \
+                --executor-cores 4 \
+                --driver-memory=40G \
+                --executor-memory=16G \
+                --num-executors 13 \
+                ../FindAllPathsForPairsGraphX/target/scala-2.12/FindAllPathsForPairsGraphX-assembly-3.0.1-1.3.4.jar "$config"
+
+                ret_val=$?
+                if [ $ret_val -ne 0 ]; then
+                        echo "Error: Executing Path Search"
+                        clean_exit $ret_val
+                fi
+
 fi
 
 # both ranking & community detection have been executed, merge their results

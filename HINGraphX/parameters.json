@@ -1,0 +1,6 @@
+{
+	"nodes_dir": "resources/test/nodes",
+	"relations_dir": "resources/test/relations",
+	"inputCSVDelimiter": "\t",
+	"hin_out": "resources/test/outputHIN"
+}
