@@ -11,6 +11,8 @@
     "communities_details":"<local_path>/SciNeM-results/3258a585-e3a4-4e7e-88ee-951e2c5f66f2/COMMUNITY_DETAILS.json",
     "sim_search_out":"<hdfs_uri>/SciNeM-results/3258a585-e3a4-4e7e-88ee-951e2c5f66f2/SIM_SEARCH.csv",
     "sim_join_out":"<hdfs_uri>/SciNeM-results/3258a585-e3a4-4e7e-88ee-951e2c5f66f2/SIM_JOIN.csv",
+    "path_searching_out": "<hdfs_uri>/SciNeM-results/3258a585-e3a4-4e7e-88ee-951e2c5f66f2/PATH_SEARCH",
+    "path_searching_pairs": "<hdfs_uri>/SciNeM-results/3258a585-e3a4-4e7e-88ee-951e2c5f66f2/node_pairs.csv",
     "final_ranking_out":"<local_path>/SciNeM-results/3258a585-e3a4-4e7e-88ee-951e2c5f66f2/RANKING_RESULT.csv",
     "final_communities_out":"<local_path>/SciNeM-results/3258a585-e3a4-4e7e-88ee-951e2c5f66f2/COMMUNITY_RESULT.csv",
     "final_sim_search_out":"<local_path>/SciNeM-results/3258a585-e3a4-4e7e-88ee-951e2c5f66f2/SIM_SEARCH_RESULT.csv",
@@ -24,6 +26,7 @@
     	"Ranking",
         "Community Detection"
     ],
+    "transformation_algorithm": "MatrixMult",
     "pr_alpha":0.5,
     "pr_tol":1.0E-6,
     "edgesThreshold":5,
@@ -36,6 +39,9 @@
     "maxSteps":5,
     "threshold":0,
     "stopCriterion":10,
+    "nOfCommunities":20, 
+    "ratio" : 0.6,
+    "path_searching_length": 5, 
     "query":{
         "metapath":"APA",
         "joinpath":"AP",
