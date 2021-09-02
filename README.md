@@ -10,7 +10,7 @@ and distributed computation. Currently, it supports the following operations:
 * Entity Ranking (based on [HRank](https://link.springer.com/article/10.1007/s10115-016-0916-1))
 * Similarity Join & Search (based on the BucketedRandomProjectionLSH of [MLlib](https://spark.apache.org/docs/latest/ml-features))
 * Community Detection
-
+* Path Searching
 
 ## How to cite
 ```
