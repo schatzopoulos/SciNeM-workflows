@@ -69,14 +69,14 @@ Its main parameters are described below:
 | irdir |	hdfs path of the folder containing relation files |
 | indir_local |	local path of the folder containing node attribute files |
 | hdfs_out_dir | hdfs path of base folder to save the results after analysis |
-| local_out_dir |	local pat of the base folde to save the final results  |
+| local_out_dir |	local path of the base folde to save the final results  |
 | analyses | an array with the analyses to be performed; currently supported analyses types are `Ranking`, `Community Detection`, `Transformation`, `Path Searching`, `Similarity Join` and `Similarity Search` |
 | query | a json object containing keys for `metapath` to be used, `joinpath` (used in similarity join anaylysis) and `constraints` to be applied on node types |
 | hin_out |	hdfs path to save the homogeneous network after HIN transformation |
 | join_hin_out | hdfs path to save the homogeneous network after HIN transformation for similarity analyses	|
 | ranking_out |	hdfs path to save ranking output |
 | communities_out |	hdfs path to save community detection output |
-| communities_details |	|
+| communities_details |	local path that indicates the file to store encoded output of community detection (needed for visualisation) |
 | sim_search_out |	hdfs path to save similarity search output|
 | sim_join_out |	hdfs path to save similarity join output |
 | path_searching_out | hdfs path to save the output of path searching |
