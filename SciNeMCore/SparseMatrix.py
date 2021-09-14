@@ -39,7 +39,7 @@ class SparseMatrix:
 		return self._matrix.count()
 
 	def write(self, filename):
-		self._matrix.coalesce(1).write.option("header", "true").csv(filename, sep='\t')
+		self._matrix.coalesce(1).write.option("header", "true").csv(filename, sep='\t', mode='overwrite')
 
 	def sort(self):
 		self._matrix = self._matrix.sort(col("src"))
