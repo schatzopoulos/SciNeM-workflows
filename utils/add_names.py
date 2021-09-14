@@ -24,10 +24,15 @@ def parse_entities(entity_file, select_field):
     return names_df
 
 def write_output(names, analysis, fin, fout, community_details_out, hdfs_hin_path, results_directory):
+    files = hdfs.ls(fin)
+    # find file that has "part-" in the filename; it is the result
+    for f in files:
+        if "part-" in f:
+            break
 
     # read community detection result
     if analysis == "Ranking":
-        with hdfs.open(fin + "/part-00000") as fd:
+        with hdfs.open(f) as fd:
             result = pd.read_csv(fd, sep='\t', header=None, names=["id", "Ranking Score"])
             # set the target node ids as the ids of the first 10 results of ranking
             target_hin_nodes = {row[1]['id']:row[1]['Ranking Score'] for row in result.head(10).iterrows()}
@@ -62,13 +67,7 @@ def write_output(names, analysis, fin, fout, community_details_out, hdfs_hin_pat
                     json.dump(hin_json, hin_json_out)
 
     elif analysis == "Community Detection":
-        files = hdfs.ls(fin)
-        # find file that has "part-" in the filename; it is the result
-        for f in files:
-          if "part-" in f:
-            break
-        
-        with hdfs.open(f) as fd:            
+        with hdfs.open(f) as fd:
           df = pd.read_csv(fd, sep='\t', header=None, names=["id", "Community"])
           result = df.sort_values(by=["Community"])
 

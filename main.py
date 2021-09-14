@@ -47,24 +47,25 @@ if ("Ranking" in analyses or "Community Detection" in analyses) or ("Transformat
 
   # apply filter in case of ranking and community detection
   res_hin.filter(col("numberOfPaths") >= edgesThreshold)
+  res_hin.filter(col("src") != col("dst"))
 
   # abort when resulted network contains no edges
   if res_hin.non_zero() == 0:
     sys.exit(100)
 
   # write output hin to hdfs
-  res_hin.filter(col("src") != col("dst"))
   res_hin.sort()
   res_hin.write(hin_out)
 
   if "Ranking" in analyses:
     ranks = graph.pagerank(res_hin, alpha, tol)
-    ranks.coalesce(1).map(utils.toCSVLine).saveAsTextFile(ranking_out)
-
+    #ranks.coalesce(1).map(utils.toCSVLine).saveAsTextFile(ranking_out)
+    # convert to DF to overwrite output
+    ranks.coalesce(1).toDF().write.csv(ranking_out, sep='\t',  mode='overwrite')
 
   if "Community Detection" in analyses and community_detection_algorithm == "Vanilla LPA":
     communities = graph.lpa(res_hin, community_detection_iter)
-    communities.coalesce(1).write.csv(communities_out, sep='\t')
+    communities.coalesce(1).write.csv(communities_out, sep='\t', mode='overwrite')
 
   verbose = False
 
@@ -73,6 +74,6 @@ if "Similarity Join" in analyses or "Similarity Search" in analyses:
   res_hin = graph.transform(spark, joinpath, nodes_dir, relations_dir, constraints, verbose)
 
   # write output hin to hdfs
-  # 	res_hin.write(join_hin_out)
+  #res_hin.write(join_hin_out)
 
   graph.similarities(res_hin, config)

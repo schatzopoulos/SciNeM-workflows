@@ -213,7 +213,7 @@ class Graph:
 				# else increase distance and try again
 				join_distance *= 2
 
-			join_results.coalesce(1).write.csv(config["sim_join_out"], sep='\t')	
+			join_results.coalesce(1).write.csv(config["sim_join_out"], sep='\t', mode='overwrite')
 
 		if ("Similarity Search" in config["analyses"]):
 			print("Similarity Analysis\t2\tCalculating Top-k Similarity Search results")
@@ -225,4 +225,4 @@ class Graph:
 			key_vector = key_vector[0]["features"]
 
 			search_results = model.approxNearestNeighbors(df, key_vector, int(config["searchK"]) + 1).filter(col("src") != target_id).select(lit(config["target_id"]), "src", "distCol")
-			search_results.coalesce(1).write.csv(config["sim_search_out"], sep='\t')
+			search_results.coalesce(1).write.csv(config["sim_search_out"], sep='\t', mode='overwrite')
