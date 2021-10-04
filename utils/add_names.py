@@ -69,6 +69,7 @@ def write_output(names, analysis, fin, fout, community_details_out, hdfs_hin_pat
     elif analysis == "Community Detection":
         with hdfs.open(f) as fd:
           df = pd.read_csv(fd, sep='\t', header=None, names=["id", "Community"])
+
           result = df.sort_values(by=["Community"])
 
           # count total communities and entities inside each community
@@ -79,7 +80,6 @@ def write_output(names, analysis, fin, fout, community_details_out, hdfs_hin_pat
 
     result = result.merge(names, on="id", how='inner')
     del result['id']
-    # result.rename(columns={'name': 'Entity'}, inplace=True)
 
     cols = result.columns.tolist()
 
@@ -98,7 +98,7 @@ with open(sys.argv[2]) as config_file:
     community_details = config["communities_details"]
     hin_out = config['hin_out']
     results_directory = config['local_out_dir']
-    
+
     entity_file = config["indir_local"] + config["query"]["metapath"][:1] + ".csv"
 
     names = parse_entities(entity_file, config["select_field"])

@@ -19,10 +19,10 @@ function getPropVal {
 }
 
 spark_master=($(getPropVal 'config.spark.master'))
-echo "${spark_master}"
+# echo "${spark_master}"
 
 # performs HIN transformation and ranking (if needed)
-# spark-submit --master local[*] --conf spark.sql.shuffle.partitions=32 --driver-memory=40G --packages graphframes:graphframes:0.8.0-spark3.0-s_2.12 --py-files=../hminer/sources.zip ../hminer/Hminer.py "$config"
+# spark-submit --master local[*] --conf spark.sql.shuffle.partitions=32 --driver-memory=20G --packages graphframes:graphframes:0.8.0-spark3.0-s_2.12 --py-files=../SciNeMCore/sources.zip ../main.py "$config"
 spark-submit \
  --master spark://"${spark_master}" \
  --conf spark.sql.shuffle.partitions=120 \
@@ -64,7 +64,6 @@ if [[ " ${analyses[@]} " =~ "Transformation" ]]; then
 		        echo "Error: HIN Transformation with Pregel"
 		        clean_exit $ret_val
 		fi
-
 	fi
 fi
 
@@ -103,16 +102,13 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 	communities_out=`cat "$config" | jq -r .communities_out`
 	final_communities_out=`cat "$config" | jq -r .final_communities_out`
 
-	if [[ "$community_algorithm" == "Vanilla LPA" ]]; then
-
-		if ! python3 ../utils/add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then
-        		echo "Error: Finding node names in Community Detection output"
-		        clean_exit 2
-		fi
-
 	# execute community detection algorithms in scala
-	else
-            spark-submit \
+	if [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]] || [[ "$community_algorithm" == "PIC" ]] || [[ "$community_algorithm" == "HPIC" ]]; then
+
+                echo -e "Community Detection\t1\tPreparing data for Community Detection"
+      		echo -e "Community Detection\t2\tExecuting Community Detection Algorithm"
+
+                spark-submit \
 	            --master spark://"${spark_master}" \
         	    --conf spark.sql.shuffle.partitions=128 \
 	            --executor-cores 4 \
@@ -127,6 +123,19 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 		        clean_exit $ret_val
 		fi
 	fi
+
+	# add attributes for Vanilla LPA and LPA
+        if [[ "$community_algorithm" == "Vanilla LPA" ]] || [[ "$community_algorithm" == "LPA" ]] ; then
+
+                if ! python3 ../utils/add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then
+                        echo "Error: Finding node names in Community Detection output"
+                        clean_exit 2
+                fi
+	else
+		echo "TODO: merge attributes for other community detection algorithms"
+		clean_exit 2
+	fi
+
 fi
 
 if [[ " ${analyses[@]} " =~ "Path Searching" ]]; then
@@ -150,13 +159,13 @@ fi
 # both ranking & community detection have been executed, merge their results
 if [[ " ${analyses[@]} " =~ "Ranking - Community Detection" ]]; then
 
-	if [[ "$community_algorithm" == "Vanilla LPA" ]]; then
+	if [[ "$community_algorithm" == "Vanilla LPA" ]] || [[ "$community_algorithm" == "LPA" ]]; then
 		if ! python3 ../utils/merge_results.py -c "$config"; then
 		        echo "Error: Combining Ranking with Community Detection"
 		        clean_exit 2
 		fi
 	else
-		echo "TODO: merge results for scala based community detection"
+		echo "TODO: merge results for OLPA, PIC and HPIC"
 		clean_exit 2
 	fi
 fi
