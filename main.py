@@ -63,7 +63,7 @@ if ("Ranking" in analyses or "Community Detection" in analyses) or ("Transformat
     # convert to DF to overwrite output
     ranks.coalesce(1).toDF().write.csv(ranking_out, sep='\t',  mode='overwrite')
 
-  if "Community Detection" in analyses and community_detection_algorithm == "Vanilla LPA":
+  if "Community Detection" in analyses and community_detection_algorithm == "LPA (GraphFrames)":
     communities = graph.lpa(res_hin, community_detection_iter)
     communities.coalesce(1).write.csv(communities_out, sep='\t', mode='overwrite')
 

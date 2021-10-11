@@ -124,13 +124,13 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 		fi
 	fi
 
-	# add attributes for Vanilla LPA and LPA
-        if [[ "$community_algorithm" == "Vanilla LPA" ]] || [[ "$community_algorithm" == "LPA" ]] ; then
+	# add attributes for LPA (GraphFrames) and LPA
+    if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] ; then
 
-                if ! python3 ../utils/add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then
-                        echo "Error: Finding node names in Community Detection output"
-                        clean_exit 2
-                fi
+        if ! python3 ../utils/add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then
+            echo "Error: Finding node names in Community Detection output"
+            clean_exit 2
+        fi
 	else
 		echo "TODO: merge attributes for other community detection algorithms"
 		clean_exit 2
@@ -159,7 +159,7 @@ fi
 # both ranking & community detection have been executed, merge their results
 if [[ " ${analyses[@]} " =~ "Ranking - Community Detection" ]]; then
 
-	if [[ "$community_algorithm" == "Vanilla LPA" ]] || [[ "$community_algorithm" == "LPA" ]]; then
+	if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]]; then
 		if ! python3 ../utils/merge_results.py -c "$config"; then
 		        echo "Error: Combining Ranking with Community Detection"
 		        clean_exit 2

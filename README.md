@@ -97,7 +97,7 @@ Its main parameters are described below:
 | t |	number of hash tables to be used for LSH in similarity analyses |
 | sim_min_values |	threshold on the number of occurences of each edge to be considerd for similarity analyses (edges with less frequency are not considered in similarity analyses)|
 | inputCSVDelimiter |	the delimiter of input files |
-| community_algorithm |	the community detection algorithm to be used; one of `Vanilla LPA`, `LPA`, `OLPA`, `PIC`, `HPIC`|
+| community_algorithm |	the community detection algorithm to be used; one of `LPA (GraphFrames)`, `LPA`, `OLPA`, `PIC`, `HPIC`|
 | transformation_algorithm | the algorithm to be used for HIN transformation; one of `MatrixMutl` or `Pregel` |
 | maxSteps | the maximum number of iterations to be performed by community detection algorithms |
 | threshold |	a double number used in each iteration of Pregel in OLPA to determine for each vertex which of the incoming communities from its neighbors will be included in the community affiliations of a vertex |
