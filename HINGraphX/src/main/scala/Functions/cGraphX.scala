@@ -1,12 +1,10 @@
 package Functions
 import java.net.URI
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.graphx._
 import org.apache.spark.sql.functions.{col, lit, map}
 import org.apache.spark.sql.types.{LongType, MapType, StringType}
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
-
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import org.apache.spark.sql.functions._
@@ -18,9 +16,9 @@ object cGraphX extends Serializable {
    * As each file corresponds to an entity type we take only the types listed in the metapath.
    * To create the vertices it reads all the vertex files, with user-defined delimiter, from nodes_dir folder
    * and creates a DataFrame with id, type, Map[String, String] columns where we have:
-   * * id: The id of the vertex which may not given as unique but is made unique internally as GraphX does not
-   *   distinguise the ids based on type.
-   * * type: A String corresponding to the file name which is the type of the vertex
+   * * id: The id of the vertex which may not be given as unique but is made unique internally as GraphX does not
+   *   distinguish the ids based on type.
+   * * type: A String corresponding to the file name which is the type of the vertex.
    * * Map[String, String] : Each column that is not named id and type is part of the attribute Map
    *   with the name of the column as key and its value in the corresponding row as value.
    *
@@ -28,7 +26,7 @@ object cGraphX extends Serializable {
    * and creates a DataFrame with src, dst, type, Map[String, String] columns where we have:
    * * src: The id of the src vertex which based on the src vertex type changes its value to its unique which is used internally.
    * * dst: The id of the dst vertex which based on the dst vertex type changes its value to its unique which is used internally.
-   * * type: A String corresponding to the file name which is the type of the edge
+   * * type: A String corresponding to the file name which is the type of the edge.
    * * Map[String, String] : Each column that is not named src, dst and type is part of the attribute Map
    *   with the name of the column as key and its value in the corresponding row as value.
    *
@@ -369,7 +367,7 @@ object cGraphX extends Serializable {
    * contains as key the id of a vertex of the first entity type in the metapath and as values the number of paths connecting
    * the first entity type vertex (key) with the vertex that houses the Map. We iterate every Map and for each of the
    * (key, value) pairs we create an edge with the key as the src, the vertex that houses the Map as the dst and the value
-   * as edge attribute which we append in a List[Edge[Long]]. We create the transformed Graph that has as vertices only those
+   * as edge attribute which we append in a List. We create the transformed Graph that has as vertices only those
    * listed either as source or as destination in the edges on the list and as edges the edges on the list.
    *
    * @param graph This graph is produced by the method createInputGraph
@@ -380,7 +378,7 @@ object cGraphX extends Serializable {
    *         and the number of different metapaths from the src to the dst following the given metapath
    */
   def createMetaPathGraph( graph: Graph[(String, Map[String, String]), (String, Map[String, String])],
-                           metaPath: String, mapGlobalIncrease: Map[String, VertexId]): Graph[String, Long] ={
+                           metaPath: String, mapGlobalIncrease: Map[String, VertexId]): VertexRDD[Map[VertexId, Long]] ={
 
     // Initialize the preliminaryGraph
     val preliminaryGraph: Graph[(Int, String, Map[String, String], Map[VertexId, Long], Long), (Int, String, Map[String, String], Long)] = graph
@@ -389,7 +387,7 @@ object cGraphX extends Serializable {
         case (_, vData) => (0, vData._1, vData._2, Map[VertexId, Long](), 0L)
       }
       // Set the level 0, the edge type, the Map of edge attributes and number of paths 0 in each edge
-      .mapTriplets(edge => (0,edge.attr._1,edge.attr._2, 0L))
+      .mapTriplets(edge => (0,edge.attr._1,edge.attr._2, 0L)).cache()
     graph.unpersistVertices()
     graph.edges.unpersist()
     // Take the reverse metaPath and its conditions
@@ -403,7 +401,6 @@ object cGraphX extends Serializable {
       val (level, vType, vMap, vFinalMap, counter) = value
       val (msgLevel, msgMap, msgValue) = msgSum
       val temp = java.lang.Math.floorMod(msgLevel, pathLength)
-
       if (msgLevel == 0 & vType.equals(typesAndConditions.mapNodeTypes(0))){
         // check if first node of the metapath has constraints
         if(typesAndConditions.mapNodeHasConditions(0)){
@@ -427,7 +424,7 @@ object cGraphX extends Serializable {
         (pathLength, vType, vMap, msgMap,  msgValue)
       }
       else{
-        (level, vType, vMap, vFinalMap, counter)
+        (-1, vType, vMap, Map[VertexId, Long](), 0L)
       }
     }
 
@@ -436,7 +433,7 @@ object cGraphX extends Serializable {
 
       val temp = java.lang.Math.floorMod(edge.srcAttr._1, pathLength)
       // check and if dstLevel == 0 then don't send any messages
-      if (edge.srcAttr._1 == 0 | edge.dstAttr._1 >= edge.srcAttr._1) {
+      if (edge.srcAttr._1 == 0 | edge.srcAttr._1 == -1 | edge.dstAttr._1 >= edge.srcAttr._1) {
         Iterator.empty
       }
       else if( 0 < edge.srcAttr._1 & edge.srcAttr._1 < pathLength){
@@ -452,14 +449,14 @@ object cGraphX extends Serializable {
           if (edge.srcAttr._2.equals(typesAndConditions.mapNodeTypes(temp - 1)) & edge.dstAttr._2.equals(typesAndConditions.mapNodeTypes(temp))) {
             if (typesAndConditions.mapNodeHasConditions(temp)){
               if (checkConditions(edge.dstId - mapGlobalIncrease(edge.dstAttr._2), edge.dstAttr._3, typesAndConditions.mapNodeConditions(temp))){
-                Iterator((edge.dstId, (edge.srcAttr._1, Map(edge.srcId -> 1L), 1L)))
+                Iterator((edge.dstId, (edge.srcAttr._1, Map(edge.srcId -> 1L), 1L)), (edge.srcId, (-1, Map[VertexId, Long](), 0L)))
               }
               else{
                 Iterator.empty
               }
             }
             else{
-              Iterator((edge.dstId, (edge.srcAttr._1, Map(edge.srcId -> 1L), 1L)))
+              Iterator((edge.dstId, (edge.srcAttr._1, Map(edge.srcId -> 1L), 1L)), (edge.srcId, (-1, Map[VertexId, Long](), 0L)))
             }
           }
           else {
@@ -470,14 +467,14 @@ object cGraphX extends Serializable {
           if (edge.srcAttr._2.equals(typesAndConditions.mapNodeTypes(temp - 1)) & edge.dstAttr._2.equals(typesAndConditions.mapNodeTypes(temp))) {
             if (typesAndConditions.mapNodeHasConditions(temp)){
               if (checkConditions(edge.dstId - mapGlobalIncrease(edge.dstAttr._2), edge.dstAttr._3, typesAndConditions.mapNodeConditions(temp))){
-                Iterator((edge.dstId, (edge.srcAttr._1, edge.srcAttr._4, edge.srcAttr._5)))
+                Iterator((edge.dstId, (edge.srcAttr._1, edge.srcAttr._4, edge.srcAttr._5)), (edge.srcId, (-1, Map[VertexId, Long](), 0L)))
               }
               else{
                 Iterator.empty
               }
             }
             else{
-              Iterator((edge.dstId, (edge.srcAttr._1, edge.srcAttr._4, edge.srcAttr._5)))
+              Iterator((edge.dstId, (edge.srcAttr._1, edge.srcAttr._4, edge.srcAttr._5)), (edge.srcId, (-1, Map[VertexId, Long](), 0L)))
             }
           }
           else {
@@ -497,13 +494,18 @@ object cGraphX extends Serializable {
       val (level2, msgMap2, counter2) = b
 
       if(level1 == level2){
-        (level1,
-          (msgMap1.keySet ++ msgMap2.keySet).map { i =>
-            val count1Val = msgMap1.getOrElse(i, 0L)
-            val count2Val = msgMap2.getOrElse(i, 0L)
-            i -> (count1Val + count2Val)
-          }(collection.breakOut),
-          counter1 + counter2)
+        if(level1 == -1){
+          a
+        }
+        else {
+          (level1,
+            (msgMap1.keySet ++ msgMap2.keySet).map { i =>
+              val count1Val = msgMap1.getOrElse(i, 0L)
+              val count2Val = msgMap2.getOrElse(i, 0L)
+              i -> (count1Val + count2Val)
+            }(collection.breakOut),
+            counter1 + counter2)
+        }
       }
       else if(level1 > level2){
         a
@@ -523,20 +525,24 @@ object cGraphX extends Serializable {
     }
 
     // We follow the reverse metaPath so as to send the final results to the start-Type vertex of the metaPath
-    val metaPathGraph = Pregel(preliminaryGraph, initialMessage, activeDirection = EdgeDirection.Out)(
+    val metaPathGraph = Pregel(preliminaryGraph, initialMessage, maxIterations = pathLength - 1, activeDirection = EdgeDirection.Out)(
       vp, sendMessage, messageCombiner)
       .mapTriplets(edge => edge.attr._2)
       .mapVertices { case (_, attr) =>
-        (attr._1, attr._2, attr._4)
+        (attr._1, attr._4)
       }
 
     preliminaryGraph.unpersistVertices()
     preliminaryGraph.edges.unpersist()
-    val transformedGraph = createSinglesGraph(metaPathGraph, pathLength, runReverseTransformation = false)
-    metaPathGraph.unpersistVertices()
     metaPathGraph.edges.unpersist()
 
-    transformedGraph
+    val vertices = metaPathGraph.vertices.filter({
+      vertex => vertex._2._1 == pathLength
+    }).mapValues{vertex => vertex._2}
+
+    metaPathGraph.unpersistVertices()
+
+    vertices
   }
 
   /***
@@ -555,7 +561,7 @@ object cGraphX extends Serializable {
    * contains as key the id of a vertex of the last entity type in the metapath and as values the number of paths connecting
    * the vertex that houses the Map with the last entity type vertex (key). We iterate every Map and for each of the
    * (key, value) pairs we create an edge with the vertex that houses the Map as the src, the key as the dst and the value
-   * as edge attribute which we append in a List[Edge[Long]]. We create the transformed Graph that has as vertices only those
+   * as edge attribute which we append in a List. We create the transformed Graph that has as vertices only those
    * listed either as source or as destination in the edges on the list and as edges the edges on the list.
    *
    * @param graph This graph is produced by the method createInputGraph
@@ -566,7 +572,7 @@ object cGraphX extends Serializable {
    *         and the number of different metapaths from the src to the dst following the given metapath
    */
   def createMetaPathGraphInReverse( graph: Graph[(String, Map[String, String]), (String, Map[String, String])],
-                           metaPath: String, mapGlobalIncrease: Map[String, VertexId]): Graph[String, Long] ={
+                           metaPath: String, mapGlobalIncrease: Map[String, VertexId]): VertexRDD[Map[VertexId, Long]] ={
 
     // Initialize the preliminaryGraph
     val preliminaryGraph: Graph[(Int, String, Map[String, String], Map[VertexId, Long], Long), (Int, String, Map[String, String], Long)] = graph
@@ -575,7 +581,7 @@ object cGraphX extends Serializable {
         case (_, vData) => (0, vData._1, vData._2, Map[VertexId, Long](), 0L)
       }
       // Set the level 0, the edge type, the Map of edge attributes and number of paths 0 in each edge
-      .mapTriplets(edge => (0,edge.attr._1,edge.attr._2, 0L))
+      .mapTriplets(edge => (0,edge.attr._1,edge.attr._2, 0L)).cache()
     graph.unpersistVertices()
     graph.edges.unpersist()
 
@@ -614,7 +620,7 @@ object cGraphX extends Serializable {
         (pathLength, vType, vMap, msgMap,  msgValue)
       }
       else{
-        (level, vType, vMap, vFinalMap, counter)
+        (-1, vType, vMap, Map[VertexId, Long](), 0L)
       }
     }
 
@@ -623,7 +629,7 @@ object cGraphX extends Serializable {
 
       val temp = java.lang.Math.floorMod(edge.dstAttr._1, pathLength)
       // check and if dstLevel == 0 then don't send any messages
-      if (edge.dstAttr._1 == 0 | edge.srcAttr._1 >= edge.dstAttr._1) {
+      if (edge.dstAttr._1 == 0 | edge.dstAttr._1 == -1 | edge.srcAttr._1 >= edge.dstAttr._1) {
         Iterator.empty
       }
       else if( 0 < edge.dstAttr._1 & edge.dstAttr._1 < pathLength){
@@ -639,14 +645,14 @@ object cGraphX extends Serializable {
           if (edge.dstAttr._2.equals(typesAndConditions.mapNodeTypes(temp - 1)) & edge.srcAttr._2.equals(typesAndConditions.mapNodeTypes(temp))) {
             if (typesAndConditions.mapNodeHasConditions(temp)){
               if (checkConditions(edge.srcId - mapGlobalIncrease(edge.srcAttr._2), edge.srcAttr._3, typesAndConditions.mapNodeConditions(temp))){
-                Iterator((edge.srcId, (edge.dstAttr._1, Map(edge.dstId -> 1L), 1L)))
+                Iterator((edge.srcId, (edge.dstAttr._1, Map(edge.dstId -> 1L), 1L)), (edge.dstId, (-1, Map[VertexId, Long](), 0L)))
               }
               else{
                 Iterator.empty
               }
             }
             else{
-              Iterator((edge.srcId, (edge.dstAttr._1, Map(edge.dstId -> 1L), 1L)))
+              Iterator((edge.srcId, (edge.dstAttr._1, Map(edge.dstId -> 1L), 1L)), (edge.dstId, (-1, Map[VertexId, Long](), 0L)))
             }
           }
           else {
@@ -657,14 +663,14 @@ object cGraphX extends Serializable {
           if (edge.dstAttr._2.equals(typesAndConditions.mapNodeTypes(temp - 1)) & edge.srcAttr._2.equals(typesAndConditions.mapNodeTypes(temp))) {
             if (typesAndConditions.mapNodeHasConditions(temp)){
               if (checkConditions(edge.srcId - mapGlobalIncrease(edge.srcAttr._2), edge.srcAttr._3, typesAndConditions.mapNodeConditions(temp))){
-                Iterator((edge.srcId, (edge.dstAttr._1, edge.dstAttr._4, edge.dstAttr._5)))
+                Iterator((edge.srcId, (edge.dstAttr._1, edge.dstAttr._4, edge.dstAttr._5)), (edge.dstId, (-1, Map[VertexId, Long](), 0L)))
               }
               else{
                 Iterator.empty
               }
             }
             else{
-              Iterator((edge.srcId, (edge.dstAttr._1, edge.dstAttr._4, edge.dstAttr._5)))
+              Iterator((edge.srcId, (edge.dstAttr._1, edge.dstAttr._4, edge.dstAttr._5)), (edge.dstId, (-1, Map[VertexId, Long](), 0L)))
             }
           }
           else {
@@ -684,13 +690,18 @@ object cGraphX extends Serializable {
       val (level2, msgMap2, counter2) = b
 
       if(level1 == level2){
-        (level1,
-          (msgMap1.keySet ++ msgMap2.keySet).map { i =>
-            val count1Val = msgMap1.getOrElse(i, 0L)
-            val count2Val = msgMap2.getOrElse(i, 0L)
-            i -> (count1Val + count2Val)
-          }(collection.breakOut),
-          counter1 + counter2)
+        if(level1 == -1){
+          a
+        }
+        else {
+          (level1,
+            (msgMap1.keySet ++ msgMap2.keySet).map { i =>
+              val count1Val = msgMap1.getOrElse(i, 0L)
+              val count2Val = msgMap2.getOrElse(i, 0L)
+              i -> (count1Val + count2Val)
+            }(collection.breakOut),
+            counter1 + counter2)
+        }
       }
       else if(level1 > level2){
         a
@@ -710,72 +721,51 @@ object cGraphX extends Serializable {
     }
 
     // We follow the reverse metaPath so as to send the final results to the start-Type vertex of the metaPath
-    val metaPathGraph = Pregel(preliminaryGraph, initialMessage, activeDirection = EdgeDirection.In)(
+    val metaPathGraph = Pregel(preliminaryGraph, initialMessage, maxIterations = pathLength - 1, activeDirection = EdgeDirection.In)(
       vp, sendMessage, messageCombiner)
       .mapTriplets(edge => edge.attr._2)
       .mapVertices { case (_, attr) =>
-        (attr._1, attr._2, attr._4)
+        (attr._1, attr._4)
       }
 
     preliminaryGraph.unpersistVertices()
     preliminaryGraph.edges.unpersist()
-    val transformedGraph = createSinglesGraph(metaPathGraph, pathLength, runReverseTransformation = true)
-    metaPathGraph.unpersistVertices()
     metaPathGraph.edges.unpersist()
 
-    transformedGraph
+    val vertices = metaPathGraph.vertices.filter({
+      vertex => vertex._2._1 == pathLength
+    }).mapValues{vertex => vertex._2}
+
+    metaPathGraph.unpersistVertices()
+
+    vertices
   }
 
   /***
    *
-   * @param graph This graph is produced by running Pregel in the method createMetaPathGraph
+   *
+   * @param vertices The vertices of the graph produced by createMetaPathGraph or createMetaPathGraphInReverse
    * @param pathLength The length of the metaPath
-   * @return a graph that is returned by the method createMetaPathGraph
+   * @return a graph much smaller from the original with only start/end Type vertices as src/dst
+   *         and the number of different metapaths from the src to the dst following the given metapath
    */
-  private def createSinglesGraph( graph: Graph[(Int, String, Map[VertexId, Long]), String],
-                                  pathLength: Int, runReverseTransformation: Boolean): Graph[String, Long] ={
+  def createSinglesGraph(vertices: VertexRDD[Map[VertexId, Long]],
+                                  pathLength: Int, runReverseTransformation: Boolean): Graph[Long, Long] ={
 
     // empty List where we will put the edges of the new Graph
     var lstEdges = new ListBuffer[Edge[Long]]()
     // empty Set where we will put the vertices of the new Graph
     var setVertices = mutable.Set[VertexId]()
 
-    val filteredvRDD = graph.vertices.filter({
-      vertex => vertex._2._1 == pathLength
-    }).mapValues{vertex => vertex._3}
 
-    // Method 1
-    val indexed_rows = filteredvRDD.zipWithIndex().cache()
-    val count = indexed_rows.count()
-    var start = 0
-    var end = start + 100000
-    while (start < count) {
-      val chunk = indexed_rows.filter(r => r._2 >= start & r._2 < end).collect()
-      for (vertex <- chunk){
-        // include in the set this start vertex
-        setVertices += vertex._1._1
-        for( (k, v) <- vertex._1._2){
-          // include in the set this end vertex
-          setVertices += k
-          // include in the List this Edge with attribute number of paths, (number of paths from start->end)/(number of paths from start)
-          // different edge directions based on the method that has been used
-          if (runReverseTransformation){
-            lstEdges += Edge(vertex._1._1, k, v)
-          }
-          else{
-            lstEdges += Edge(k, vertex._1._1, v)
-          }
-        }
-      }
-      start = end
-      end = start + 100000
-    }
-    indexed_rows.unpersist()
+    val filteredVRDD = vertices.cache()
 
-/*
-    // Method 2
-    filteredvRDD.collect()
-      .foreach(vertex =>{
+    val parts = filteredVRDD.partitions
+    for(p <- parts){
+      val idx = p.index
+      val partRDD = filteredVRDD.mapPartitionsWithIndex((index: Int, it: Iterator[(VertexId, Map[VertexId, Long])]) => if(index == idx) it else Iterator(), preservesPartitioning = true)
+      val data = partRDD.collect()
+      data.foreach(vertex =>{
         // include in the set this start vertex
         setVertices += vertex._1
         for( (k, v) <- vertex._2){
@@ -791,23 +781,9 @@ object cGraphX extends Serializable {
           }
         }
       })
-
- */
-
-    val  lstVertices = setVertices.toList
-    // take the vertices RDD and include all the vertices where id in
-    val verticesRDD = graph
-      .vertices
-      .filter({
-        vertex => lstVertices.contains(vertex._1)
-      })
-      .mapValues({
-        k => k._2
-      })
-
-    graph.unpersistVertices()
-    graph.edges.unpersist()
-
+      partRDD.unpersist()
+    }
+    filteredVRDD.unpersist()
 
     val spark: SparkSession = org.apache.spark.sql
       .SparkSession
@@ -815,8 +791,7 @@ object cGraphX extends Serializable {
       .getOrCreate
 
     val edgesRDD = spark.sparkContext.parallelize(lstEdges.toList)
-    val transformedGraph = Graph(verticesRDD, edgesRDD)
-    verticesRDD.unpersist()
+    val transformedGraph = Graph.fromEdges(edgesRDD, -1L)
     edgesRDD.unpersist()
 
     transformedGraph
@@ -903,7 +878,7 @@ object cGraphX extends Serializable {
             }
           }
           else{
-            if(nodeConditions.getOrElse(tempList(0), null) != null) {
+            if(nodeConditions.getOrElse(tempList(0), null) != null & nodeConditions.getOrElse(tempList(0), null) != "nan") {
               if (nodeConditions.getOrElse(tempList(0), 0.0).toString.toDouble != tempList(1).toDouble) {
                 return false
               }
@@ -928,7 +903,7 @@ object cGraphX extends Serializable {
             }
           }
           else {
-            if(nodeConditions.getOrElse(tempList(0), null) != null) {
+            if(nodeConditions.getOrElse(tempList(0), null) != null & nodeConditions.getOrElse(tempList(0), null) != "nan") {
               if (nodeConditions.getOrElse(tempList(0), 0.0).toString.toDouble == tempList(1).toDouble) {
                 return false
               }
@@ -953,7 +928,7 @@ object cGraphX extends Serializable {
             }
           }
           else {
-            if(nodeConditions.getOrElse(tempList(0), null) != null) {
+            if(nodeConditions.getOrElse(tempList(0), null) != null & nodeConditions.getOrElse(tempList(0), null) != "nan") {
               if (!(nodeConditions.getOrElse(tempList(0), 0.0).toString.toDouble >= tempList(1).toDouble)) {
                 return false
               }
@@ -978,7 +953,7 @@ object cGraphX extends Serializable {
             }
           }
           else {
-            if(nodeConditions.getOrElse(tempList(0), null) != null) {
+            if(nodeConditions.getOrElse(tempList(0), null) != null & nodeConditions.getOrElse(tempList(0), null) != "nan") {
               if (!(nodeConditions.getOrElse(tempList(0), 0.0).toString.toDouble <= tempList(1).toDouble)) {
                 return false
               }
@@ -1003,7 +978,7 @@ object cGraphX extends Serializable {
             }
           }
           else {
-            if(nodeConditions.getOrElse(tempList(0), null) != null) {
+            if(nodeConditions.getOrElse(tempList(0), null) != null & nodeConditions.getOrElse(tempList(0), null) != "nan") {
               if (!(nodeConditions.getOrElse(tempList(0), 0.0).toString.toDouble > tempList(1).toDouble)) {
                 return false
               }
@@ -1028,7 +1003,7 @@ object cGraphX extends Serializable {
             }
           }
           else {
-            if(nodeConditions.getOrElse(tempList(0), null) != null) {
+            if(nodeConditions.getOrElse(tempList(0), null) != null & nodeConditions.getOrElse(tempList(0), null) != "nan") {
               if (!(nodeConditions.getOrElse(tempList(0), 0.0).toString.toDouble < tempList(1).toDouble)) {
                 return false
               }
@@ -1057,7 +1032,7 @@ object cGraphX extends Serializable {
    *                            had to be increased to transform into a unique id
    *
    */
-  def writeOutput(graph: Graph[String, Long],
+  def writeOutput(graph: Graph[Long, Long],
                   outputDirectoryPath: String, metaPath: String, mapGlobalIncrease: Map[String, VertexId]): Unit ={
 
     // Take the vertices and the length of the metaPath
@@ -1105,7 +1080,17 @@ object cGraphX extends Serializable {
         transformedMetapath += vType + "["
         val getConstraints = constraintsMap.getOrElse(vType.toString, "")
         if (getConstraints.nonEmpty){
-          transformedMetapath += getConstraints
+          if(getConstraints.contains("and")){
+            val constraints = getConstraints.split("and").map(_.trim).toList
+            val first = constraints.take(1).head
+            transformedMetapath += first
+            for(constraint <- constraints.takeRight(constraints.length - 1)){
+              transformedMetapath += ";" + constraint
+            }
+          }
+          else{
+            transformedMetapath += getConstraints
+          }
         }
 
         if (counter < metapathList.length - 1){

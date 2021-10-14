@@ -1,13 +1,13 @@
 import sys
 import csv
 import json
-import os  
-import pandas as pd 
+import os
+import pandas as pd
 import pydoop.hdfs as hdfs
 
 def parse_entities(entity_file, select_field):
     with open(entity_file) as fp:
-    
+
         # read header file and determine selected column
         line = fp.readline()
 
@@ -23,7 +23,7 @@ def parse_entities(entity_file, select_field):
 
     return names_df
 
-def write_output(names, analysis, fin, fout, community_details_out, hdfs_hin_path, results_directory):
+def write_output(names, analysis, fin, fout, community_details_out, community_algorithm, hdfs_hin_path, results_directory):
     files = hdfs.ls(fin)
     # find file that has "part-" in the filename; it is the result
     for f in files:
@@ -68,17 +68,22 @@ def write_output(names, analysis, fin, fout, community_details_out, hdfs_hin_pat
 
     elif analysis == "Community Detection":
         with hdfs.open(f) as fd:
-          df = pd.read_csv(fd, sep='\t', header=None, names=["id", "Community"])
+          colnames = [ "id", "Community" ]
 
-          result = df.sort_values(by=["Community"])
+          # OLPA also produces scores for each entity in a community
+          if (community_algorithm == "OLPA"):
+              colnames.append("Community Membership Score")
+
+          result = pd.read_csv(fd, sep='\t', header=None, names=colnames)
+          result = result.sort_values(by=["Community"])
 
           # count total communities and entities inside each community
-          community_counts =  df.groupby('Community')['id'].nunique()
+          community_counts =  result.groupby('Community')['id'].nunique()
           community_counts.loc["total"] = community_counts.count()
           community_counts.to_json(community_details_out)
 
-
     result = result.merge(names, on="id", how='inner')
+
     del result['id']
 
     cols = result.columns.tolist()
@@ -86,6 +91,10 @@ def write_output(names, analysis, fin, fout, community_details_out, hdfs_hin_pat
     # in case of ranking, move name first
     if analysis == "Ranking":
         cols = cols[-1:] + cols[:-1]
+
+    # in case of community detection, sort by community and membership score
+    elif analysis == "Community Detection":
+        result = result.sort_values(by=["Community"])
 
     result[cols].to_csv(fout, index = False, sep='\t')
 
@@ -98,9 +107,10 @@ with open(sys.argv[2]) as config_file:
     community_details = config["communities_details"]
     hin_out = config['hin_out']
     results_directory = config['local_out_dir']
+    community_algorithm = config['community_algorithm']
 
     entity_file = config["indir_local"] + config["query"]["metapath"][:1] + ".csv"
 
     names = parse_entities(entity_file, config["select_field"])
-    write_output(names, analysis, fin, fout, community_details, hin_out, results_directory)
+    write_output(names, analysis, fin, fout, community_details, community_algorithm, hin_out, results_directory)
     print(analysis + "\t3\tCompleted")
