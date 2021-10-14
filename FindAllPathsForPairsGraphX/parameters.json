@@ -1,8 +1,8 @@
 {
-	"nodes_dir": "resources/test/nodes",
-	"relations_dir": "resources/test/relations",
-	"path_searching_pairs": "resources/test/node_pairs.csv",
+	"nodes_dir": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/test/nodes",
+	"relations_dir": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/test/relations",
+	"path_searching_pairs": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/test/node_pairs.csv",
 	"inputCSVDelimiter": "\t",
-	"path_searching_out": "resources/findAllPaths_out",
+	"path_searching_out": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/test/path_searching_out",
 	"path_searching_length": 5
 }

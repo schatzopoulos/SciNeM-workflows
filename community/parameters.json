@@ -1,11 +1,11 @@
 {
-	"hin_out": "resources/bigtest/outputHIN",
+	"hin_out": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/bigtest/outputHIN",
 	"inputCSVDelimiter": "\t",
 	"community_algorithm": "HPIC",
-	"communities_out": "resources/bigtest/outputLabels",
-	"stopCriterion": 20,
+	"communities_out": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/bigtest/outputLabels",
+	"stopCriterion": 50,
 	"nOfCommunities": 20,
-	"threshold": 0.5,
-	"ratio": 0.2,
-	"maxSteps": 40
+	"threshold": 0.1,
+	"ratio": 0.3,
+	"maxSteps": 20
 }

@@ -1,18 +1,20 @@
 package Functions
 
-import Functions.Common.{getHdfs,deleteDirectory}
-import org.apache.hadoop.fs.Path
+import java.net.URI
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.ml.clustering.PowerIterationClustering
 import org.apache.spark.sql.functions.{col, sum}
-import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.types.{DoubleType, LongType}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 object PICFunctions {
   /** *
+   * This function reads the .csv file(s) containing the edges of the transformed Graph and creates a new DataFrame for them.
    *
    * @param inputDirectoryPath the relations which will be used to read the transformed dataframe of edges
    * @param delimiter          The delimiter which will be used to read the csv files in the folders
-   * @return the transformed dataframe with weights to be used in the PIC algorithm
+   * @return the dataframe with weights to be used in the PIC algorithm
    */
   def readTDataFrame(inputDirectoryPath: String, delimiter: String = "\t"): DataFrame = {
 
@@ -22,8 +24,8 @@ object PICFunctions {
       .builder
       .getOrCreate
 
-    //Build edges DataFrame
-    var edgesDF: DataFrame = null
+    // Build edges DataFrame
+    var edgesDF: DataFrame = spark.emptyDataFrame
     val hdfsFolder = getHdfs(inputDirectoryPath)
     val outPutPath = new Path(inputDirectoryPath)
     val findStatus = hdfsFolder.getFileStatus(outPutPath)
@@ -33,7 +35,7 @@ object PICFunctions {
         .toList
         .foreach(file => {
           if (file.getPath.getName.endsWith(".csv")) {
-            edgesDF = spark.read
+            val tempDF = spark.read
               .format("csv")
               .option("header", "true")
               .option("mode", "DROPMALFORMED")
@@ -42,43 +44,32 @@ object PICFunctions {
               .load(file.getPath.toString)
               .withColumn("src", col("src").cast(LongType))
               .withColumn("dst", col("dst").cast(LongType))
-              .withColumn("numberOfPaths", col("numberOfPaths").cast(LongType))
+              .withColumn("numberOfPaths", col("numberOfPaths").cast(DoubleType))
               .withColumnRenamed("numberOfPaths", "weight")
+              .filter(row => row(0) != row(1))
+
+            if(!tempDF.isEmpty){
+              if(edgesDF.isEmpty){
+                edgesDF = tempDF
+              }
+              else{
+                edgesDF = edgesDF.union(tempDF)
+              }
+              tempDF.unpersist()
+            }
           }
         })
     }
     edgesDF
   }
 
-  /***
-   *
-   * @param input the transformed dataframe with weights
-   * @param nOfCommunities the number of communities given to PIC
-   * @param maxSteps the maximum number of iterations that is used in PIC
-   * @return a dataframe that every vertex id and its community
-   */
-  def runPIC(input: DataFrame, nOfCommunities: Int, maxSteps: Int): DataFrame ={
-
-    require(nOfCommunities >= 2, s"The number of starting communities must be greater or equal than 2, but got $nOfCommunities")
-    require(maxSteps > 0, s"the maximum number of iterations must be greater than 0, but got $maxSteps")
-
-    val model = new PowerIterationClustering().
-      setK(nOfCommunities).
-      setMaxIter(maxSteps).
-      setInitMode("degree").
-      setWeightCol("weight")
-
-    val prediction = model.assignClusters(input)
-    val tPrediction = prediction.select("id", "cluster")
-    prediction.unpersist()
-    tPrediction
-  }
-
   /** *
+   * This function reads the .csv file(s) containing the edges of the transformed Graph and creates a new DataFrame for them.
+   * Additionally, it returns the number of communities that at least once act as source and/or destination in the edges.
    *
    * @param inputDirectoryPath the relations which will be used to read the transformed dataframe of edges
    * @param delimiter          The delimiter which will be used to read the csv files in the folders
-   * @return the transformed dataframe with weights to be used in the PIC algorithm
+   * @return the transformed dataframe with weights to be used in the HPIC algorithm
    */
   def readTDataFrameHPIC(inputDirectoryPath: String, delimiter: String = "\t"): (DataFrame, Int) = {
 
@@ -88,7 +79,7 @@ object PICFunctions {
       .builder
       .getOrCreate
 
-    //Build edges DataFrame
+    // Build edges DataFrame
     var edgesDF: DataFrame = null
     val hdfsFolder = getHdfs(inputDirectoryPath)
     val outPutPath = new Path(inputDirectoryPath)
@@ -99,7 +90,7 @@ object PICFunctions {
         .toList
         .foreach(file => {
           if (file.getPath.getName.endsWith(".csv")) {
-            edgesDF = spark.read
+            val tempDF = spark.read
               .format("csv")
               .option("header", "true")
               .option("mode", "DROPMALFORMED")
@@ -108,16 +99,56 @@ object PICFunctions {
               .load(file.getPath.toString)
               .withColumn("src", col("src").cast(LongType))
               .withColumn("dst", col("dst").cast(LongType))
-              .withColumn("numberOfPaths", col("numberOfPaths").cast(LongType))
+              .withColumn("numberOfPaths", col("numberOfPaths").cast(DoubleType))
               .withColumnRenamed("numberOfPaths", "weight")
+              .filter(row => row(0) != row(1))
+
+            if(!tempDF.isEmpty){
+              if(edgesDF == null){
+                edgesDF = tempDF
+              }
+              else{
+                edgesDF = edgesDF.union(tempDF)
+              }
+              tempDF.unpersist()
+            }
           }
         })
     }
+
     val edgesRDDDistinct = edgesDF.drop("weight").rdd.flatMap(r=>r.toSeq).distinct
-    val countDistinct = edgesRDDDistinct.collect.length
+    val countDistinct = edgesRDDDistinct.count()
     edgesRDDDistinct.unpersist()
-    (edgesDF, countDistinct)
+    (edgesDF, countDistinct.toInt)
   }
+
+  /***
+   * This function executes the Power Iteration Algorithm (PIC) in the DataFrame with the edges of the transformed Graph.
+   * PIC runs for a user-defined number of times and for a user-defined number of clusters.
+   *
+   * @param input the transformed dataframe of edges
+   * @param nOfClusters the number of clusters given to PIC
+   * @param maxIter the maximum number of iterations that is given to PIC
+   * @return a dataframe with two columns where every row contains a VertexId and its cluster.
+   */
+  def runPIC(input: DataFrame, nOfClusters: Int, maxIter: Int): DataFrame ={
+
+    require(nOfClusters >= 2, s"The number of starting clusters must be greater or equal than 2, but got $nOfClusters")
+    require(maxIter > 0, s"the maximum number of iterations must be greater than 0, but got $maxIter")
+
+    val model = new PowerIterationClustering().
+      setK(nOfClusters).
+      setMaxIter(maxIter).
+      setInitMode("degree").
+      setWeightCol("weight")
+
+    val prediction = model.assignClusters(input)
+
+    val tPrediction = prediction.select("id", "cluster")
+    prediction.unpersist()
+    tPrediction
+  }
+
   /***
    *
    * @param input the dataframe used as input in the previous execution of PIC
@@ -127,28 +158,36 @@ object PICFunctions {
   private def createNewLevelDataFrame(input: DataFrame, prediction: DataFrame): DataFrame = {
     val spark = SparkSession.builder.getOrCreate()
     import spark.implicits._
+    val inputCached = input.cache()
+    val predictionCached = prediction.cache()
+    val numberOfPartitions = inputCached.rdd.getNumPartitions
 
-    //first join with src prediction
-    val firstJoinDF = input.join(prediction.as("srcDF"), input("src") ===  $"srcDF.id")
+    // first join with src prediction
+    val firstJoinDF = inputCached.join(predictionCached.as("srcDF"), inputCached("src") ===  $"srcDF.id")
       .drop("srcDF.id", "src")
       .withColumnRenamed("cluster", "src")
+      .coalesce(numberOfPartitions)
+      .cache()
 
-    input.unpersist()
-
-    //second join with dst prediction
-    val secondJoinDF = firstJoinDF.join(prediction.as("dstDF"),input("dst") ===  $"dstDF.id")
+    inputCached.unpersist()
+    // second join with dst prediction
+    val secondJoinDF = firstJoinDF.join(predictionCached.as("dstDF"),firstJoinDF("dst") === $"dstDF.id")
       .drop("dstDF.id", "dst")
       .withColumnRenamed("cluster", "dst")
+      .coalesce(numberOfPartitions)
+      .cache()
 
     firstJoinDF.unpersist()
-
+    predictionCached.unpersist()
     // select and rename cluster and weight columns
-    val intermediateDF = secondJoinDF.select($"src", $"dst", input("weight"))
+    val intermediateDF = secondJoinDF.select($"src", $"dst", secondJoinDF("weight"))
+      .filter(row => row(0) != row(1))
       .groupBy($"src", $"dst")
       .agg(sum("weight"))
       .withColumnRenamed("srcCluster", "src")
       .withColumnRenamed("dstCluster", "dst")
       .withColumnRenamed("sum(weight)", "weight")
+      .coalesce(numberOfPartitions)
 
     secondJoinDF.unpersist()
 
@@ -183,110 +222,127 @@ object PICFunctions {
    *         of the hierarchy, from all the previous executions of PIC
    */
   private def addColumnInOutputDF(level: Int, outputDF: DataFrame, prediction: DataFrame): DataFrame = {
-    //val spark = SparkSession.builder.getOrCreate()
-    //import spark.implicits._
-    val newDF = outputDF.join(prediction, outputDF("level" + level) === prediction("id"))
+    val outputDFCached = outputDF.cache()
+    val newDF = outputDFCached.join(prediction, outputDF("level" + level) === prediction("id"), "left")
       .drop("id")
       .withColumnRenamed("cluster", "level" + (level + 1))
-    outputDF.unpersist()
+    outputDFCached.unpersist()
     newDF
   }
 
 
   /***
+   * This function executes the Hierarchical Power Iteration Algorithm (HPIC) to generate a hierarchy of clusters.
+   * It runs consecutive executions of the PIC algorithm until the next-level number of clusters is smaller or equal to 1.
+   * The first execution of PIC is run on the DataFrame with the edges of the transformed Graph.
+   * After each execution of PIC, we create a new DataFrame, which will be used as input in the next iteration,
+   * and contains edges that correspond to the resulting clusters as source and destination vertices and the sum
+   * of the outer-cluster edges’ edge-weights as new edge-weights.
+   * This DataFrame is produced with the following steps:
+   * * First, we join the DataFrame used in the previous execution of PIC with the DataFrame that is the output of
+   * that execution of PIC on the src column and use the cluster column as the new src column.
+   * * Second, we once again join the DataFrame resulting from the first join with the DataFrame that is the output of
+   * that execution of PIC on the dst column this time and use the new cluster column as the new dst column.
+   * * Finally, we sum the rows with common (src, dst) to produce new edge-weights.
+   * The results of each execution are stored in a DataFrame as a new column. Each column corresponds to a different
+   * level in the hierarchy.
    *
-   * @param input the transformed dataframe with weights
-   * @param nOfCommunities the number of first level communities
-   * @param ratio the number which reduces the number of communities on each level
+   * PIC runs for a user-defined number of times and for a user-defined number of clusters.
+   *
+   * @param input The Dataframe with the edges of the transformed graph.
+   * @param nOfClusters the number of first level clusters
+   * @param ratio the nOfClusters which reduces the number of clusters on each level
    * @param maxIter the maximum number of iterations that is used in each execution of PIC
-   * @return a dataframe that has vertices as rows and the communities of each level as columns
+   * @return a dataframe that has vertices as rows and the clusters of each level as columns
    */
-  def runHPIC(input: DataFrame, nOfCommunities: Int, ratio: Double, maxIter: Int): DataFrame ={
+  def runHPIC(input: DataFrame, nOfClusters: Int, ratio: Double, maxIter: Int): DataFrame ={
 
-    require(nOfCommunities >= 2, s"The number of starting communities must be greater or equal than 2, but got $nOfCommunities")
+    require(nOfClusters >= 2, s"The number of starting clusters must be greater or equal than 2, but got $nOfClusters")
     require(ratio > 0 & ratio < 1, s"The ration must be greater than 0 and smaller than 1, but got $ratio")
     require(maxIter > 0, s"the maximum number of iterations must be greater than 0, but got $maxIter")
+
 
     var outputDF: DataFrame = null
     var intermediateDF: DataFrame = null
     var counter: Int = 0
-    var nNOfCommunities = ratio*nOfCommunities
-
-    while(nNOfCommunities >= 1.0){
-      println(nNOfCommunities)
-      val model = new PowerIterationClustering().
-        setK(roundUp(nNOfCommunities).toInt).
-        setMaxIter(maxIter).
-        setInitMode("degree").
-        setWeightCol("weight")
-
+    var nNOfClusters = ratio*nOfClusters
+    while(nNOfClusters > 1.0 & !input.isEmpty){
       if(counter == 0){
-        val prediction = model.assignClusters(input)
-        intermediateDF = createNewLevelDataFrame(input, prediction)
+        val tPrediction = runPIC(input, roundUp(nNOfClusters).toInt, maxIter).cache()
+        intermediateDF = createNewLevelDataFrame(input, tPrediction).cache()
+        if(intermediateDF.isEmpty){
+          return outputDF
+        }
         input.unpersist()
 
-        outputDF = createOutputDF(prediction)
+        outputDF = createOutputDF(tPrediction)
 
-        //check the current number of communities and if smaller than given number of commnunities then change nNOfCommunities
-        val clustersDistinct = prediction.select("cluster").rdd.flatMap(r=>r.toSeq).distinct
-        prediction.unpersist()
-        val nOfCurrentCommunities = clustersDistinct.collect.length
-        if(roundUp(nNOfCommunities).toInt > nOfCurrentCommunities){
-          nNOfCommunities = nOfCurrentCommunities
+        // check the current number of clusters and if smaller than given number of clusters then change nNOfClusters
+        val clustersDistinct = tPrediction.select("cluster").rdd.flatMap(r=>r.toSeq).distinct
+        val nOfCurrentClusters = clustersDistinct.count().toInt
+        if(roundUp(nNOfClusters).toInt != nOfCurrentClusters){
+          nNOfClusters = nOfCurrentClusters
         }
         clustersDistinct.unpersist()
+        tPrediction.unpersist()
       }
       else{
-        val prediction = model.assignClusters(intermediateDF)
-        intermediateDF = createNewLevelDataFrame(intermediateDF, prediction)
-
-        outputDF = addColumnInOutputDF(counter, outputDF, prediction)
-
-        //check the current number of communities and if smaller than given number of commnunities then change nNOfCommunities
-        val clustersDistinct = prediction.select("cluster").rdd.flatMap(r=>r.toSeq).distinct
-        prediction.unpersist()
-        val nOfCurrentCommunities = clustersDistinct.collect.length
-        if(roundUp(nNOfCommunities).toInt > nOfCurrentCommunities){
-          nNOfCommunities = nOfCurrentCommunities
+        val tPrediction = runPIC(intermediateDF, roundUp(nNOfClusters).toInt, maxIter).cache()
+        intermediateDF = createNewLevelDataFrame(intermediateDF, tPrediction).cache()
+        if(intermediateDF.isEmpty){
+          return outputDF
+        }
+        outputDF = addColumnInOutputDF(counter, outputDF, tPrediction)
+        // check the current number of clusters and if smaller than given number of clusters then change nNOfClusters
+        val clustersDistinct = tPrediction.select("cluster").distinct().rdd.flatMap(r=>r.toSeq).distinct
+        val nOfCurrentClusters = clustersDistinct.count().toInt
+        if(roundUp(nNOfClusters).toInt != nOfCurrentClusters){
+          nNOfClusters = nOfCurrentClusters
         }
         clustersDistinct.unpersist()
+        tPrediction.unpersist()
       }
-      // number of communities for the next execution of PIC
-      nNOfCommunities = ratio*nNOfCommunities
-      // if number of communities do not reduce (mainly smaller numbers) reduce again
-      while(nNOfCommunities.toInt == (nNOfCommunities/ratio).toInt){
-        nNOfCommunities = ratio*nNOfCommunities
-        // exit while if previously
-        if(nNOfCommunities.toInt == 0){
-          nNOfCommunities = -100000
-        }
+      // number of clusters for the next execution of PIC
+      nNOfClusters = ratio*nNOfClusters
+      // if number of clusters do not reduce (mainly smaller numbers) reduce again
+      while(nNOfClusters.toInt == (nNOfClusters/ratio).toInt){
+        nNOfClusters = ratio*nNOfClusters
       }
       counter+=1
     }
-    intermediateDF.unpersist()
-
     outputDF
   }
 
-
   /***
+   * This function writes the vertices and their clusters.
    *
-   * @param results the dataframe produced by PIC
+   * @param outputDF the dataframe produced by PIC
    * @param outputPath the output path where we will write the results of the PIC algorithm
    */
-  def writeResultsPIC(results: DataFrame, outputPath: String) :Unit = {
-    deleteDirectory(outputPath)
-    results.write.format("csv").option("delimiter", "\t").save(path = outputPath)
+  def writeResultsPIC(outputDF: DataFrame, outputPath: String) :Unit = {
+    outputDF.sort(col("cluster").asc).coalesce(1).write.mode(SaveMode.Overwrite).format("csv")
+      .option("delimiter", "\t").save(path = outputPath)
   }
 
 
   /***
+   * This function writes the ids of the vertices followed by their clusters on each level of the hierarchy.
    *
    * @param outputDF the dataframe produced by HPIC
    * @param outputPath the output path where we will write the results of the HPIC algorithm
    */
   def writeResultsHPIC(outputDF: DataFrame, outputPath: String) :Unit = {
-    deleteDirectory(outputPath)
-    outputDF.write.format("csv").option("delimiter", "\t").save(path = outputPath)
+    outputDF.sort(col("level1").asc).coalesce(1).write.mode(SaveMode.Overwrite).format("csv")
+      .option("nullValue", "null").option("delimiter", "\t").save(path = outputPath)
+  }
+
+  /***
+   *
+   * @param path the path to the hdfs folder/file
+   * @return Generate hadoop FileSystem
+   */
+  private def getHdfs(path: String): FileSystem = {
+    val conf = new Configuration()
+    FileSystem.get(URI.create(path), conf)
   }
 }

@@ -1,20 +1,21 @@
 package Functions
 
-import Functions.Common.{getHdfs,deleteDirectory}
-import org.apache.hadoop.fs.Path
+import java.net.URI
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.graphx._
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import scala.collection.immutable.ListMap
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import scala.collection.{Map, mutable}
+import org.apache.spark.sql.functions.{col, explode_outer}
 
 object LPAFunctions {
   /***
+   * This function reads the .csv file(s) containing the edges of the transformed Graph and creates a new Graph from them.
    *
    * @param inputDirectoryPath the relations which will be used to create the transformed graph
    * @param delimiter The delimiter which will be used to read the csv files in the folders
-   * @return the transformed graph to be used in the LPA algorithm
+   * @return the transformed graph to be used in the (O)LPA algorithm
    */
   def readTGraph(inputDirectoryPath: String, delimiter: String = "\t") :Graph[VertexId, Long]= {
 
@@ -24,7 +25,7 @@ object LPAFunctions {
       .builder
       .getOrCreate
 
-    //Build edges DataFrame
+    // Build edges DataFrame
     var edgesDF: DataFrame = null
     val hdfsFolder = getHdfs(inputDirectoryPath)
     val outPutPath = new Path(inputDirectoryPath)
@@ -35,7 +36,7 @@ object LPAFunctions {
         .toList
         .foreach(file => {
           if (file.getPath.getName.endsWith(".csv")) {
-            edgesDF = spark.read
+            val tempDF = spark.read
               .format("csv")
               .option("header", "true")
               .option("mode", "DROPMALFORMED")
@@ -45,6 +46,15 @@ object LPAFunctions {
               .withColumn("src", col("src").cast(LongType))
               .withColumn("dst", col("dst").cast(LongType))
               .withColumn("numberOfPaths", col("numberOfPaths").cast(LongType))
+            if(!tempDF.isEmpty){
+              if(edgesDF == null){
+                edgesDF = tempDF
+              }
+              else{
+                edgesDF = edgesDF.union(tempDF)
+              }
+              tempDF.unpersist()
+            }
           }
         })
     }
@@ -56,31 +66,29 @@ object LPAFunctions {
   }
 
   /***
-   * Run Label Propagation for detecting communities in networks.
    *
-   * Each node in the network is initially assigned to its own community. At every superstep, nodes
-   * send their community affiliation to all neighbors and update their state to the mode community
-   * affiliation of incoming messages.
+   * This function executes the Label Propagation Algorithm (LPA) in the transformed Graph using GraphX's Pregel.
+   * Each vertex is initially assigned to its own community. At every superstep, vertices
+   * send their community affiliation to all neighbors and update their state to the vertex community
+   * affiliation of incoming messages. A vertex does not send its community affiliation to a neighbor
+   * if said neighbor satisfied the stopping criterion. The algorithm runs for a user-defined number of times.
    *
-   * LPA is a standard community detection algorithm for graphs. It is very inexpensive
-   * computationally, although (1) convergence is not guaranteed and (2) one can end up with
-   * trivial solutions (all nodes are identified into a single community).
    *
-   * @param graph the graph for which to compute the community affiliation
-   * @param maxSteps the maximum number of supersteps of LPA to be performed.
-   * @param stopCriterion the number of times that a vertex can have the same community affiliation
+   * @param graph The transformed graph for whose vertices we will compute their community affiliations.
+   * @param maxSteps The maximum number of supersteps of LPA to be performed.
+   * @param stopCriterion The number of times that a vertex can have the same community affiliation
    *                      before it stops been included in the remaining supersteps of the LPA.
    * @return a graph with vertex attributes containing the label of community affiliation
    */
   def runLPA(graph: Graph[VertexId, Long], maxSteps: Int, stopCriterion: Int): Graph[VertexId, Long] = {
+
     require(maxSteps > 0, s"Maximum of steps must be greater than 0, but got $maxSteps")
     require(stopCriterion > 0, s"Number of times with the same label must be greater than 0, but got $stopCriterion")
-
-    val lpaGraph: Graph[(VertexId, Int), VertexId] = graph.mapVertices { case (vid, _) => (vid, 0) }
+    val lpaGraph: Graph[(VertexId, Int), VertexId] = graph.mapVertices { case (vid, _) => (vid, 0) }.cache()
     graph.unpersistVertices()
     graph.edges.unpersist()
+
     def sendMessage(e: EdgeTriplet[(VertexId, Int), Long]): Iterator[(VertexId, Map[VertexId, Long])] = {
-      // send Map(0 -> 0L)
       if (e.srcAttr._2 == stopCriterion && e.dstAttr._2 == stopCriterion){
         Iterator.empty
       }
@@ -129,29 +137,34 @@ object LPAFunctions {
     lpaGraph.unpersistVertices()
     lpaGraph.edges.unpersist()
 
-    communitiesGraph.mapVertices{case attr => attr._2._1}
+    communitiesGraph.mapVertices({case (_,attr) => attr._1})
   }
 
-  /**
-   * Run Overlapping Community Detection for detecting overlapping communities in networks.
-   *
-   * OLPA is an overlapping community detection algorithm.It is based on standard Label propagation
-   * but instead of single community per node , multiple communities can be assigned per node.
-   *
-   * @param graph           the graph for which to compute the community affiliation
-   * @param maxSteps        the number of supersteps of OLPA to be performed. Because this is a static
-   *                        implementation, the algorithm will run for exactly this many supersteps.
-   * @param threshold       the threshold which the incoming communities must pass to be included in
-   *                        the community affiliations of a node.
-   * @return a graph with list of vertex attributes containing the labels of communities affiliation
-   */
 
+  /***
+   * This function executes the Overlapping Label Propagation Algorithm (OLPA) in the transformed Graph using GraphX's Pregel.
+   * It is based on the abovementioned LPA but instead of single community per node , multiple communities can be assigned
+   * per node. Each vertex is initially assigned to its own community. At every superstep, vertices
+   * send their community affiliations to all neighbors and update their state to the vertex community
+   * affiliations of incoming messages that overcome a user-defined threshold. A vertex does not send its community
+   * affiliation to a neighbor if said neighbor satisfied the stopping criterion.
+   * The algorithm runs for a user-defined number of times.
+   *
+   *
+   * @param graph    The transformed graph for whose vertices we will compute their community affiliations.
+   * @param maxSteps  the number of supersteps of OLPA to be performed.
+   * @param threshold     the threshold which the incoming communities must pass to be included in
+   *                      the community affiliations of a vertex.
+   * @param stopCriterion the number of times that a vertex can have the same community affiliations
+   *                      before it stops been included in the remaining supersteps of the OLPA.
+   * @return a graph with vertex attributes containing community affiliations and their scores.
+   */
   def runOLPA(graph: Graph[VertexId, Long], maxSteps: Int, threshold: Double, stopCriterion: Int): Graph[Map[VertexId, Double], Long] = {
     require(maxSteps > 0, s"Maximum of steps must be greater than 0, but got $maxSteps")
     require(threshold >= 0.0 & threshold < 1, s"Threshold must be greater or equal than 0 and less than 1, but got $threshold")
     require(stopCriterion > 0, s"Number of times with the same label must be greater than 0, but got $stopCriterion")
 
-    val lpaGraph: Graph[(Map[VertexId, Double], Int), Long] = graph.mapVertices { case (vid, _) => (Map[VertexId, Double](vid -> 1), 0) }
+    val lpaGraph: Graph[(Map[VertexId, Double], Int), Long] = graph.mapVertices { case (vid, _) => (Map[VertexId, Double](vid -> 1), 0) }.cache()
     graph.unpersistVertices()
     graph.edges.unpersist()
     def sendMessage(e: EdgeTriplet[(Map[VertexId, Double], Int), Long]): Iterator[(VertexId, Map[VertexId, Double])] = {
@@ -185,7 +198,7 @@ object LPAFunctions {
         var coefficientSum = message.values.sum
 
         if (attr._2 != stopCriterion) {
-          //Normalize the map so that every node has total coefficientSum as 1
+          // normalize the map so that every node has total coefficientSum as 1
           val normalizedMap: Map[VertexId, Double] = message.map(row => {
             row._1 -> (row._2/coefficientSum)
           })
@@ -203,7 +216,7 @@ object LPAFunctions {
             }
           })
 
-          //Add maximum value node in result map if there is no node with sum greater then threshold
+          // add maximum value node in result map if there is no node with sum greater then threshold
           if (resMap.isEmpty) {
             resMap += (maxRow -> maxRowValue)
           }
@@ -240,35 +253,46 @@ object LPAFunctions {
   }
 
   /***
+   * This function writes the vertices and their community affiliations.
    *
    * @param vertices the vertices of the graph that is produced after LPA
    * @param outputLPA the output path where we will write the results of the LPA algorithm
    */
   def writeResultsLPA(vertices: VertexRDD[VertexId], outputLPA: String) :Unit = {
-    deleteDirectory(outputLPA)
     val spark = SparkSession.builder.getOrCreate()
     import spark.implicits._
     val print_lpa = vertices.sortBy(_._2, ascending = false).collect().toList.toDF()
     vertices.unpersist()
-    print_lpa.write.format("csv").option("delimiter", "\t").save(path = outputLPA)
+    print_lpa.coalesce(1).write.mode(SaveMode.Overwrite).format("csv")
+      .option("delimiter", "\t").save(path = outputLPA)
   }
 
   /***
+   * This function writes the vertices and their community affiliations along with their scores.
+   * The greater the score of a community the greater the chance that the vertex belong to that community.
    *
    * @param vertices the vertices of the graph that is produced after OLPA
    * @param outputOLPA the output path where we will write the results of the OLPA algorithm
    */
   def writeResultsOLPA(vertices: VertexRDD[Map[VertexId, Double]], outputOLPA: String) :Unit = {
-    deleteDirectory(outputOLPA)
     val spark = SparkSession.builder.getOrCreate()
     import spark.implicits._
-    val print_olpa = vertices.map({ vertex =>
-      val stringFromMap = ListMap(vertex._2.toSeq.sortWith(_._2 > _._2):_*)
-        .map(_.productIterator.mkString(":")).mkString("|")
-      (vertex._1, stringFromMap)
-    }).collect().toList.toDF()
+    val print_olpa = vertices.sortBy(_._1, ascending = false)
+      .collect().toList.toDF("nodes","communities")
+      .select($"nodes", explode_outer($"communities"))
+        .sort($"key".asc)
 
-    vertices.unpersist()
-    print_olpa.write.format("csv").option("delimiter", "\t").save(path = outputOLPA)
+    print_olpa.coalesce(1).write.mode(SaveMode.Overwrite).format("csv")
+      .option("nullValue", "null").option("delimiter", "\t").save(path = outputOLPA)
+  }
+
+  /***
+   *
+   * @param path the path to the hdfs folder/file
+   * @return Generate hadoop FileSystem
+   */
+  private def getHdfs(path: String): FileSystem = {
+    val conf = new Configuration()
+    FileSystem.get(URI.create(path), conf)
   }
 }

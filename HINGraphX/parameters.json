@@ -1,6 +1,10 @@
 {
-	"nodes_dir": "resources/test/nodes",
-	"relations_dir": "resources/test/relations",
+	"nodes_dir": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/test/nodes",
+	"relations_dir": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/test/relations",
 	"inputCSVDelimiter": "\t",
-	"hin_out": "resources/test/outputHIN"
+	"hin_out": "hdfs://172.16.1.156:9000/SDL-PANOS/resources/test/outputHIN",
+	"query": {
+		"metapath":"OAO",
+		"constraints":{}
+	}
 }

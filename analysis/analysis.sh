@@ -105,17 +105,15 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 	# execute community detection algorithms in scala
 	if [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]] || [[ "$community_algorithm" == "PIC" ]] || [[ "$community_algorithm" == "HPIC" ]]; then
 
-                echo -e "Community Detection\t1\tPreparing data for Community Detection"
-      		echo -e "Community Detection\t2\tExecuting Community Detection Algorithm"
-
-                spark-submit \
-	            --master spark://"${spark_master}" \
-        	    --conf spark.sql.shuffle.partitions=128 \
-	            --executor-cores 4 \
-		    --driver-memory=40G \
-		    --executor-memory=16G \
-		    --num-executors 13 \
-		    ../community/target/scala-2.12/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar "$config"
+		spark-submit \
+			--master spark://"${spark_master}" \
+			--conf spark.sql.shuffle.partitions=50 \
+			--conf spark.network.timeout=600s \
+			--executor-cores 7 \
+			--driver-memory=50G \
+			--executor-memory=25G \
+			--num-executors 6 \
+			../community/target/scala-2.12/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar "$config"
 
 		ret_val=$?
 		if [ $ret_val -ne 0 ]; then
@@ -125,7 +123,7 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 	fi
 
 	# add attributes for LPA (GraphFrames) and LPA
-    if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] ; then
+    if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]]; then
 
         if ! python3 ../utils/add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then
             echo "Error: Finding node names in Community Detection output"
@@ -159,7 +157,7 @@ fi
 # both ranking & community detection have been executed, merge their results
 if [[ " ${analyses[@]} " =~ "Ranking - Community Detection" ]]; then
 
-	if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]]; then
+	if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]]; then
 		if ! python3 ../utils/merge_results.py -c "$config"; then
 		        echo "Error: Combining Ranking with Community Detection"
 		        clean_exit 2

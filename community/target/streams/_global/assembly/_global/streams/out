@@ -1,10 +1,10 @@
-[0m[[0m[0mdebug[0m] [0m[0mIncluding: upickle-core_2.12-1.4.0.jar[0m
-[0m[[0m[0mdebug[0m] [0m[0mIncluding: upickle-implicits_2.12-1.4.0.jar[0m
 [0m[[0m[0mdebug[0m] [0m[0mIncluding: upickle_2.12-1.4.0.jar[0m
-[0m[[0m[0mdebug[0m] [0m[0mIncluding: geny_2.12-0.6.10.jar[0m
-[0m[[0m[0mdebug[0m] [0m[0mIncluding: upack_2.12-1.4.0.jar[0m
-[0m[[0m[0mdebug[0m] [0m[0mIncluding: os-lib_2.12-0.7.8.jar[0m
+[0m[[0m[0mdebug[0m] [0m[0mIncluding: upickle-implicits_2.12-1.4.0.jar[0m
+[0m[[0m[0mdebug[0m] [0m[0mIncluding: upickle-core_2.12-1.4.0.jar[0m
 [0m[[0m[0mdebug[0m] [0m[0mIncluding: ujson_2.12-1.4.0.jar[0m
+[0m[[0m[0mdebug[0m] [0m[0mIncluding: geny_2.12-0.6.10.jar[0m
+[0m[[0m[0mdebug[0m] [0m[0mIncluding: os-lib_2.12-0.7.8.jar[0m
+[0m[[0m[0mdebug[0m] [0m[0mIncluding: upack_2.12-1.4.0.jar[0m
 [0m[[0m[0mdebug[0m] [0m[0mIncluding: scala-library.jar[0m
 [0m[[0m[0mdebug[0m] [0m[0mCalculate mappings...[0m
 [0m[[0m[0mdebug[0m] [0m[0mChecking every *.class/*.jar file's SHA-1.[0m
@@ -14,17 +14,13 @@
 [0m[[0m[0mdebug[0m] [0m[0mMerging 'META-INF/MANIFEST.MF' with strategy 'discard'[0m
 [0m[[0m[0minfo[0m] [0m[0mStrategy 'discard' was applied to a file (Run the task at debug level to see details)[0m
 [0m[[0m[0minfo[0m] [0m[0mStrategy 'rename' was applied to 2 files (Run the task at debug level to see details)[0m
-[0m[[0m[0mdebug[0m] [0m[0mSHA-1: caa111d8030684fca3f10a4a4d356b27650731ba[0m
+[0m[[0m[0mdebug[0m] [0m[0mSHA-1: 380432d2dfd4db1805f8febad602b80dedd6afbc[0m
 [0m[[0m[0mdebug[0m] [0m[0mPackaging /data/SciNeM/SciNeM-workflows/community/target/scala-2.12/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar ...[0m
 [0m[[0m[0mdebug[0m] [0m[0mInput file mappings:[0m
 [0m[[0m[0mdebug[0m] [0m[0m	AlgorithmsMain$.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	  /data/SciNeM/SciNeM-workflows/community/target/streams/_global/assemblyOption/_global/streams/assembly/560dc295ba096c9e8ff4f97a4505335d4bc6e96d_dir/AlgorithmsMain$.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	AlgorithmsMain.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	  /data/SciNeM/SciNeM-workflows/community/target/streams/_global/assemblyOption/_global/streams/assembly/560dc295ba096c9e8ff4f97a4505335d4bc6e96d_dir/AlgorithmsMain.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	Functions/Common$.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /data/SciNeM/SciNeM-workflows/community/target/streams/_global/assemblyOption/_global/streams/assembly/560dc295ba096c9e8ff4f97a4505335d4bc6e96d_dir/Functions/Common$.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	Functions/Common.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /data/SciNeM/SciNeM-workflows/community/target/streams/_global/assemblyOption/_global/streams/assembly/560dc295ba096c9e8ff4f97a4505335d4bc6e96d_dir/Functions/Common.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	Functions/LPAFunctions$$typecreator5$1.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	  /data/SciNeM/SciNeM-workflows/community/target/streams/_global/assemblyOption/_global/streams/assembly/560dc295ba096c9e8ff4f97a4505335d4bc6e96d_dir/Functions/LPAFunctions$$typecreator5$1.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	Functions/LPAFunctions$$typecreator5$2.class[0m
