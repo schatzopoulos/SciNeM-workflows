@@ -49,15 +49,12 @@ class Graph:
                         	print("HIN Transformation\t" + str(3 * step + idx * (step * 3)) + "\tPreparing Network for metapath " + metapath, flush=True)
 
 			partial_result = self.multiply(spark, transition_matrices, dimensions, verbose)
-			print(partial_result.non_zero())
 
 			if idx == 0:
 				hin_view = partial_result
 			else:
 				hin_view = hin_view.merge(partial_result)
 
-		hin_view.get_df().show(n=5)
-		print(hin_view.non_zero())
 		return hin_view
 
 	def build_constraint_matrices(self, spark, metapath, nodes_dir, constraints):
