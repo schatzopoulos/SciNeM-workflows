@@ -18,27 +18,47 @@ from pyspark.sql.functions import size
 
 class Graph:
 
-	_dimensions = []
-	_transition_matrices = []
+	#_dimensions = []
+	#_transition_matrices = []
 
-	def transform(self, spark, metapath, nodes_dir, relations_dir, constraints, verbose):
-		if verbose == True:
-			print("HIN Transformation\t1\tLoading HIN Nodes", flush=True)
+	def transform(self, spark, queries, nodes_dir, relations_dir, verbose):
 
-		# start_time = time.time()
-		constraint_ids = self.build_constraint_matrices(spark, metapath, nodes_dir, constraints)
+		step = 3 / (len(queries) * 3)
 
-		# vertices.show(n=5)
-		# print("--- read vertices %s %s---" % (time.time() - start_time, vertices.rdd.getNumPartitions()))
-		if verbose == True:
-			print("HIN Transformation\t2\tLoading HIN Edges", flush=True)
+		for idx, query in enumerate(queries, start=0):
 
-		# start_time = time.time()
-		self._transition_matrices = self.build_transition_matrices(spark, metapath, relations_dir, constraint_ids)
-		# edges.show(n=5)
-		# print("--- read edges  %s %s ---" % (time.time() - start_time, edges.rdd.getNumPartitions()))
+			metapath = query["metapath"]
+			constraints = query["constraints"]
 
-		return self.multiply(spark, verbose)
+			if verbose == True:
+                        	print("HIN Transformation\t" + str(step + idx * (step * 3)) + "\tLoading HIN Nodes for metapath " + metapath, flush=True)
+
+			# start_time = time.time()
+			dimensions, constraint_ids = self.build_constraint_matrices(spark, metapath, nodes_dir, constraints)
+
+			# vertices.show(n=5)
+			# print("--- read vertices %s %s---" % (time.time() - start_time, vertices.rdd.getNumPartitions()))
+			if verbose == True:
+				print("HIN Transformation\t" + str(2 * step + idx * (step * 3)) + "\tLoading HIN Edges for metapath " + metapath, flush=True)
+
+			# start_time = time.time()
+			transition_matrices = self.build_transition_matrices(spark, metapath, relations_dir, constraint_ids, dimensions)
+			# edges.show(n=5)
+			# print("--- read edges  %s %s ---" % (time.time() - start_time, edges.rdd.getNumPartitions()))
+			if verbose == True:
+                        	print("HIN Transformation\t" + str(3 * step + idx * (step * 3)) + "\tPreparing Network for metapath " + metapath, flush=True)
+
+			partial_result = self.multiply(spark, transition_matrices, dimensions, verbose)
+			print(partial_result.non_zero())
+
+			if idx == 0:
+				hin_view = partial_result
+			else:
+				hin_view = hin_view.merge(partial_result)
+
+		hin_view.get_df().show(n=5)
+		print(hin_view.non_zero())
+		return hin_view
 
 	def build_constraint_matrices(self, spark, metapath, nodes_dir, constraints):
 
@@ -46,13 +66,14 @@ class Graph:
 		# print("##### Nodes #####")
 		dims = {}
 		constraint_ids = {}
+		dimensions = []
 
 		# loop in unique metapath entities
 		for node in list(metapath):
 
 			# we have already processed dimensions & constraints for this entity
 			if node in dims:
-				self._dimensions.append(dims[node])
+				dimensions.append(dims[node])
 				continue
 
 			# read dataframe from csv file
@@ -61,15 +82,15 @@ class Graph:
 			# count number of lines
 			count = df.count()
 			dims[node] = count
-			self._dimensions.append(count)
+			dimensions.append(count)
 
 			if node in constraints:
 				df_filtered = df.select("id").where(constraints[node])
 				constraint_ids[node] = df_filtered #SparseMatrix(df_filtered)
 
-		return constraint_ids
+		return dimensions, constraint_ids
 
-	def build_transition_matrices(self, spark, metapath, relations_dir, constraint_ids):
+	def build_transition_matrices(self, spark, metapath, relations_dir, constraint_ids, dimensions):
 		transition_matrices = []
 
 		# print("##### Relations #####")
@@ -90,23 +111,21 @@ class Graph:
 			if relation[1] in constraint_ids:
 				relations = relations.join(constraint_ids[relation[1]], relations.dst == constraint_ids[relation[1]].id).select(relations['*'])
 
-			transition_matrices.append(SparseMatrix(self._dimensions[i], self._dimensions[i+1], relations.withColumn("numberOfPaths", lit(1))))
+			transition_matrices.append(SparseMatrix(dimensions[i], dimensions[i+1], relations.withColumn("numberOfPaths", lit(1))))
 
 		return transition_matrices
 
-	def multiply(self, spark, verbose):
-		if verbose == True:
-			print("HIN Transformation\t3\tPreparing Network", flush=True)
+	def multiply(self, spark, transition_matrices, dimensions, verbose):
 
-		if len(self._transition_matrices) == 1:
-			return self._transition_matrices[0]
+		if len(transition_matrices) == 1:
+			return transition_matrices[0]
 
 		optimizer = DynamicOptimizer()
 
-		optimizer.sparse_optimimal_chain_order(self._dimensions, self._transition_matrices)
+		optimizer.sparse_optimimal_chain_order(dimensions, transition_matrices)
 
 		chain_order = []
-		optimizer.get_optimal_chain_order(0, len(self._dimensions) - 2, chain_order);
+		optimizer.get_optimal_chain_order(0, len(dimensions) - 2, chain_order);
 		# print(chain_order)
 
 		temp = []
@@ -118,16 +137,16 @@ class Graph:
 
 			if k >= 0 and l >= 0:
 
-				res = self._transition_matrices[k].multiply(spark, self._transition_matrices[l])
+				res = transition_matrices[k].multiply(spark, transition_matrices[l])
 				temp.append(res)
 
 			elif k == -1 and l >= 0:
 
-				temp[n-1] = temp[n-1].multiply(spark, self._transition_matrices[l])
+				temp[n-1] = temp[n-1].multiply(spark, transition_matrices[l])
 
 			elif k >= 0 and l == -1:
 
-				temp[n-1] = self._transition_matrices[k].multiply(spark, temp[n-1])
+				temp[n-1] = transition_matrices[k].multiply(spark, temp[n-1])
 
 			else:
 

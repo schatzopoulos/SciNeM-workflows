@@ -64,7 +64,7 @@ with open(sys.argv[2]) as config_file:
 
     join_out = config["final_sim_join_out"]
     search_out = config["final_sim_search_out"]    
-    entity_file = config["indir_local"] + config["query"]["metapath"][:1] + ".csv"
+    entity_file = config["indir_local"] + config["primary_entity"][:1] + ".csv"
 
     names = parse_entities(entity_file, config["select_field"])
 

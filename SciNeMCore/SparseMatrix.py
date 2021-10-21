@@ -1,6 +1,6 @@
 from pyspark.serializers import PickleSerializer, AutoBatchedSerializer
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import broadcast, col
+from pyspark.sql.functions import broadcast, col, sum
 from pyspark.sql.types import StructType, StructField, LongType, DoubleType
 
 import argparse
@@ -67,3 +67,8 @@ class SparseMatrix:
 		""")
 
 		return SparseMatrix(self.get_rows(), B.get_cols(), df)
+
+	def merge(self, B):
+		df = self._matrix.union(B.get_df()).groupby(["src", "dst"]).agg(sum("numberOfPaths").alias("numberOfPaths"))
+		return SparseMatrix(self.get_rows(), self.get_cols(), df)
+
