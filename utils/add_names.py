@@ -109,7 +109,7 @@ with open(sys.argv[2]) as config_file:
     results_directory = config['local_out_dir']
     community_algorithm = config['community_algorithm']
 
-    entity_file = config["indir_local"] + config["query"]["metapath"][:1] + ".csv"
+    entity_file = config["indir_local"] + config["primary_entity"][:1] + ".csv"
 
     names = parse_entities(entity_file, config["select_field"])
     write_output(names, analysis, fin, fout, community_details, community_algorithm, hin_out, results_directory)
