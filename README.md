@@ -52,6 +52,10 @@ src	dst
 
 ## Usage
 It is vital that you provide the appropriate values in the [config file](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/config.properties). 
+Then perform the following command:
+```
+source config.properties
+```
 
 In order to perform an analysis, you need to navigate inside the root directory of the cloned repository and execute the following [analysis.sh](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/analysis.sh) bash script with the appropriate configuration file as a parameter: 
 
@@ -71,7 +75,7 @@ Its main parameters are described below:
 | hdfs_out_dir | hdfs path of base folder to save the results after analysis |
 | local_out_dir |	local path of the base folde to save the final results  |
 | analyses | an array with the analyses to be performed; currently supported analyses types are `Ranking`, `Community Detection`, `Transformation`, `Path Searching`, `Similarity Join` and `Similarity Search` |
-| query | a json object containing keys for `metapath` to be used, `joinpath` (used in similarity join anaylysis) and `constraints` to be applied on node types |
+| queries | an array of json objects containing keys for `metapath` to be used, `joinpath` (used in similarity join anaylysis) and `constraints` to be applied on node types |
 | hin_out |	hdfs path to save the homogeneous network after HIN transformation |
 | join_hin_out | hdfs path to save the homogeneous network after HIN transformation for similarity analyses	|
 | ranking_out |	hdfs path to save ranking output |
