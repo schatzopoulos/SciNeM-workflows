@@ -52,6 +52,10 @@ src	dst
 
 ## Usage
 It is vital that you provide the appropriate values in the [config file](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/config.properties). 
+Then perform the following command:
+```
+source config.properties
+```
 
 In order to perform an analysis, you need to navigate inside the root directory of the cloned repository and execute the following [analysis.sh](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/analysis/analysis.sh) bash script with the appropriate configuration file as a parameter: 
 
