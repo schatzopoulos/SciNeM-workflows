@@ -8,19 +8,6 @@ function clean_exit() {
 	exit $1
 }
 
-#read the properties file and returns the value based on the key
-function getPropVal {
-    value= grep "${1}" ./$CONFIG_FILE | cut -d'=' -f2
-	if [[ -z "$value" ]]; then
-	   echo "Key not found"
-	   exit 1
-	fi
-	echo $value
-}
-
-spark_master=($(getPropVal 'config.spark.master'))
-# echo "${spark_master}"
-
 # performs HIN transformation and ranking (if needed)
 # spark-submit --master local[*] --conf spark.sql.shuffle.partitions=32 --driver-memory=20G --packages graphframes:graphframes:0.8.0-spark3.0-s_2.12 --py-files=../SciNeMCore/sources.zip ../main.py "$config"
 spark-submit \
@@ -123,7 +110,7 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 	fi
 
 	# add attributes for LPA (GraphFrames) and LPA
-    if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]]; then
+    if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]] || [[ "$community_algorithm" == "PIC" ]]; then
 
         if ! python3 ../utils/add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then
             echo "Error: Finding node names in Community Detection output"
@@ -157,13 +144,13 @@ fi
 # both ranking & community detection have been executed, merge their results
 if [[ " ${analyses[@]} " =~ "Ranking - Community Detection" ]]; then
 
-	if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]]; then
+	if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]] || [[ "$community_algorithm" == "PIC" ]]; then
 		if ! python3 ../utils/merge_results.py -c "$config"; then
 		        echo "Error: Combining Ranking with Community Detection"
 		        clean_exit 2
 		fi
 	else
-		echo "TODO: merge results for OLPA, PIC and HPIC"
+		echo "TODO: merge results for HPIC"
 		clean_exit 2
 	fi
 fi
