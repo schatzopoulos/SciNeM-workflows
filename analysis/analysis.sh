@@ -12,11 +12,11 @@ function clean_exit() {
 # spark-submit --master local[*] --conf spark.sql.shuffle.partitions=32 --driver-memory=20G --packages graphframes:graphframes:0.8.0-spark3.0-s_2.12 --py-files=../SciNeMCore/sources.zip ../main.py "$config"
 spark-submit \
  --master spark://"${spark_master}" \
- --conf spark.sql.shuffle.partitions=120 \
- --executor-cores 8 \
- --total-executor-cores 60 \
- --executor-memory 25G \
- --num-executors 8 \
+ --conf spark.sql.shuffle.partitions="${shuffle_partitions}" \
+ --executor-cores "${executor_cores}" \
+ --total-executor-cores "${total_executor_cores}" \
+ --executor-memory "${executor_memory}" \
+ --num-executors "${num_executors}" \
  --packages graphframes:graphframes:0.8.0-spark3.0-s_2.12 \
  --py-files=../SciNeMCore/sources.zip ../main.py "$config"
 
@@ -38,12 +38,12 @@ if [[ " ${analyses[@]} " =~ "Transformation" ]]; then
 	if [[ "${transformation_algorithm}" == "Pregel" ]]; then
           	spark-submit \
            	--master spark://"${spark_master}" \
-            	--conf spark.sql.shuffle.partitions=500 \
+            	--conf spark.sql.shuffle.partitions="${shuffle_partitions}" \
 		--conf spark.driver.maxResultSize=0 \
-            	--executor-cores 6 \
-	    	--driver-memory=50G \
-	    	--executor-memory=25G \
-	    	--num-executors 6 \
+            	--executor-cores "${executor_cores}" \
+	    	--driver-memory="${driver_memory}" \
+	    	--executor-memory="${executor_memory}" \
+	    	--num-executors "${num_executors}" \
             	../HINGraphX/target/scala-2.12/HINGraphX-assembly-3.0.1-1.3.4.jar "$config"
 
 		ret_val=$?
@@ -94,12 +94,12 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 
 		spark-submit \
 			--master spark://"${spark_master}" \
-			--conf spark.sql.shuffle.partitions=50 \
+			--conf spark.sql.shuffle.partitions="${shuffle_partitions}" \
 			--conf spark.network.timeout=600s \
-			--executor-cores 7 \
-			--driver-memory=50G \
-			--executor-memory=25G \
-			--num-executors 6 \
+			--executor-cores "${executor_cores}" \
+			--driver-memory="${driver_memory}" \
+			--executor-memory="${executor_memory}" \
+			--num-executors "${num_executors}" \
 			../community/target/scala-2.12/AlgorithmsGraphX-assembly-3.0.1-1.3.4.jar "$config"
 
 		ret_val=$?
@@ -126,11 +126,11 @@ fi
 if [[ " ${analyses[@]} " =~ "Path Searching" ]]; then
  	spark-submit \
         	--master spark://"${spark_master}" \
-                --conf spark.sql.shuffle.partitions=128 \
-                --executor-cores 4 \
-                --driver-memory=40G \
-                --executor-memory=16G \
-                --num-executors 13 \
+                --conf spark.sql.shuffle.partitions="${shuffle_partitions}" \
+                --executor-cores "${executor_cores}" \
+                --driver-memory="${driver_memory}" \
+                --executor-memory="${executor_memory}" \
+                --num-executors "${num_executors}" \
                 ../FindAllPathsForPairsGraphX/target/scala-2.12/FindAllPathsForPairsGraphX-assembly-3.0.1-1.3.4.jar "$config"
 
                 ret_val=$?
