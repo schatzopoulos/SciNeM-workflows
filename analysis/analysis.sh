@@ -109,18 +109,11 @@ if [[ " ${analyses[@]} " =~ "Community Detection" ]]; then
 		fi
 	fi
 
-	# add attributes for LPA (GraphFrames) and LPA
-    if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]] || [[ "$community_algorithm" == "PIC" ]]; then
-
+	# add entity attributes
         if ! python3 ../utils/add_names.py -c "$config" "Community Detection" "$communities_out" "$final_communities_out"; then
             echo "Error: Finding node names in Community Detection output"
             clean_exit 2
         fi
-	else
-		echo "TODO: merge attributes for other community detection algorithms"
-		clean_exit 2
-	fi
-
 fi
 
 if [[ " ${analyses[@]} " =~ "Path Searching" ]]; then

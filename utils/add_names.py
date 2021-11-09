@@ -68,22 +68,33 @@ def write_output(names, analysis, fin, fout, community_details_out, community_al
 
     elif analysis == "Community Detection":
         with hdfs.open(f) as fd:
-          colnames = [ "id", "Community" ]
 
-          # OLPA also produces scores for each entity in a community
-          if (community_algorithm == "OLPA"):
-              colnames.append("Community Membership Score")
+          if community_algorithm == "HPIC":
+              result = pd.read_csv(fd, sep='\t', header=None)
+              result = result.iloc[:, 1:] # delete first column as it is the same with the second (why?)
 
-          result = pd.read_csv(fd, sep='\t', header=None, names=colnames)
-          result = result.sort_values(by=["Community"])
+              # rename columns based on the hierarchy levels found
+              colsLen = len(result.columns)
+              colnames = [ i for i in range(colsLen, 0, -1) ]
+              colnames[0] = 'id'
+              result.rename(columns=dict(zip(result.columns.values, colnames)), inplace=True)
 
-          # count total communities and entities inside each community
-          community_counts =  result.groupby('Community')['id'].nunique()
-          community_counts.loc["total"] = community_counts.count()
-          community_counts.to_json(community_details_out)
+          else:
+              colnames = [ "id", "Community" ]
+
+              # OLPA also produces scores for each entity in a community
+              if (community_algorithm == "OLPA"):
+                  colnames.append("Community Membership Score")
+
+              result = pd.read_csv(fd, sep='\t', header=None, names=colnames)
+              result = result.sort_values(by=["Community"])
+
+              # count total communities and entities inside each community
+              community_counts =  result.groupby('Community')['id'].nunique()
+              community_counts.loc["total"] = community_counts.count()
+              community_counts.to_json(community_details_out)
 
     result = result.merge(names, on="id", how='inner')
-
     del result['id']
 
     cols = result.columns.tolist()
@@ -93,11 +104,11 @@ def write_output(names, analysis, fin, fout, community_details_out, community_al
         cols = cols[-1:] + cols[:-1]
 
     # in case of community detection, sort by community and membership score
-    elif analysis == "Community Detection":
+    elif analysis == "Community Detection" and not community_algorithm == "HPIC":
         result = result.sort_values(by=["Community"])
 
     result[cols].to_csv(fout, index = False, sep='\t')
-
+    print(result)
 
 with open(sys.argv[2]) as config_file:
     analysis = sys.argv[3]
