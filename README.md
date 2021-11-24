@@ -49,6 +49,7 @@ src	dst
 1	0
 ...
 ```
+Note that a sample compressed file that contains all the required files for a subset of the DBLP dataset can be found [here](http://scinem.imsi.athenarc.gr/content/DBLP_sample.zip).
 
 ## Usage
 It is vital that you provide the appropriate values in the [config file](https://github.com/schatzopoulos/SciNeM-workflows/blob/master/config.properties). 
