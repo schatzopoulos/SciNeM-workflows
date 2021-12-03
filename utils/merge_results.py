@@ -17,8 +17,6 @@ select_field = config["select_field"]
 # join on Entity column
 result = ranking_df.merge(community_df, on=select_field, how='inner')
 
-result.sort_values(by=["Community", "Ranking Score"], ascending=[True, False], inplace=True)
-
 # swap community id and ranking score columns
 cols = result.columns.tolist()
 cols[1], cols[2] = cols[2], cols[1]

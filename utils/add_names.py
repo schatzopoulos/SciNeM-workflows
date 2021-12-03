@@ -4,6 +4,7 @@ import json
 import os
 import pandas as pd
 import pydoop.hdfs as hdfs
+import math
 
 def parse_entities(entity_file, select_field):
     with open(entity_file) as fp:
@@ -14,12 +15,12 @@ def parse_entities(entity_file, select_field):
         fields = line.rstrip().split('\t')
         for i in range(len(fields)):
 
-            if select_field in fields[i]: 
+            if select_field in fields[i]:
                 break
 
         select_field_idx = i
 
-        names_df = pd.read_csv(entity_file, sep='\t', usecols=["id", select_field])
+        names_df = pd.read_csv(entity_file, sep='\t', usecols=["id", select_field], dtype=str)
 
     return names_df
 
@@ -33,7 +34,7 @@ def write_output(names, analysis, fin, fout, community_details_out, community_al
     # read community detection result
     if analysis == "Ranking":
         with hdfs.open(f) as fd:
-            result = pd.read_csv(fd, sep='\t', header=None, names=["id", "Ranking Score"])
+            result = pd.read_csv(fd, sep='\t', header=None, names=["id", "Ranking Score"], dtype={ 'id': str, 'Ranking Score': float })
             # set the target node ids as the ids of the first 10 results of ranking
             target_hin_nodes = {row[1]['id']:row[1]['Ranking Score'] for row in result.head(10).iterrows()}
             max_ranking_score = result["Ranking Score"].max()
@@ -46,7 +47,7 @@ def write_output(names, analysis, fin, fout, community_details_out, community_al
                 if "part-" in f:
                     break
             with hdfs.open(f) as hin_edges:
-                edge_entries = pd.read_csv(hin_edges, sep='\t', header=None, names=['id0', 'id1', 'weight'])
+                edge_entries = pd.read_csv(hin_edges, sep='\t', header=None, names=['id0', 'id1', 'weight'], dtype=str)
                 target_edges = edge_entries[edge_entries['id0'].isin(target_hin_nodes)][
                     edge_entries['id1'].isin(target_hin_nodes)]
                 edges_json_list = [
@@ -70,7 +71,7 @@ def write_output(names, analysis, fin, fout, community_details_out, community_al
         with hdfs.open(f) as fd:
 
           if community_algorithm == "HPIC":
-              result = pd.read_csv(fd, sep='\t', header=None)
+              result = pd.read_csv(fd, sep='\t', header=None, dtype=str, keep_default_na=False)
               result = result.iloc[:, 1:] # delete first column as it is the same with the second (why?)
 
               # rename columns based on the hierarchy levels found
@@ -79,6 +80,21 @@ def write_output(names, analysis, fin, fout, community_details_out, community_al
               colnames[0] = 'id'
               result.rename(columns=dict(zip(result.columns.values, colnames)), inplace=True)
 
+              def transform(row):
+                  communities = []
+
+                  for index, value in enumerate(row):
+
+                      if (index == 0 or value == 'null'):
+                          continue
+
+                      communities.append(str(colnames[index]) + "." +  str(value))
+
+                  return '-'.join(communities)
+
+              # transform output into one 'community' column
+              result['Community'] = result.apply(transform, axis=1)
+              result = result[['id', 'Community']]
           else:
               colnames = [ "id", "Community" ]
 
@@ -86,7 +102,7 @@ def write_output(names, analysis, fin, fout, community_details_out, community_al
               if (community_algorithm == "OLPA"):
                   colnames.append("Community Membership Score")
 
-              result = pd.read_csv(fd, sep='\t', header=None, names=colnames)
+              result = pd.read_csv(fd, sep='\t', header=None, names=colnames, dtype=str)
               result = result.sort_values(by=["Community"])
 
               # count total communities and entities inside each community
@@ -108,7 +124,6 @@ def write_output(names, analysis, fin, fout, community_details_out, community_al
         result = result.sort_values(by=["Community"])
 
     result[cols].to_csv(fout, index = False, sep='\t')
-    print(result)
 
 with open(sys.argv[2]) as config_file:
     analysis = sys.argv[3]
