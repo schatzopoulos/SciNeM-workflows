@@ -137,14 +137,9 @@ fi
 # both ranking & community detection have been executed, merge their results
 if [[ " ${analyses[@]} " =~ "Ranking - Community Detection" ]]; then
 
-	if [[ "$community_algorithm" == "LPA (GraphFrames)" ]] || [[ "$community_algorithm" == "LPA" ]] || [[ "$community_algorithm" == "OLPA" ]] || [[ "$community_algorithm" == "PIC" ]]; then
-		if ! python3 ../utils/merge_results.py -c "$config"; then
-		        echo "Error: Combining Ranking with Community Detection"
-		        clean_exit 2
-		fi
-	else
-		echo "TODO: merge results for HPIC"
-		clean_exit 2
+	if ! python3 ../utils/merge_results.py -c "$config"; then
+	        echo "Error: Combining Ranking with Community Detection"
+	        clean_exit 2
 	fi
 fi
 
